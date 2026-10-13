@@ -1,0 +1,18 @@
+{
+  "unity": "6000.2.10f1",
+  "project_created": true,
+  "scene_generated_in_unity": true,
+  "initial_compilation_succeeded": true,
+  "play_mode_verified": true,
+  "mcp_package_embedded": true,
+  "mcp_editor_connected": true,
+  "default_active_npcs": 1,
+  "required_final_active_npcs": 3,
+  "target_count": 3,
+  "blocker": null,
+  "latest_source_compilation_succeeded": true,
+  "scene_references_resolved": true,
+  "play_checks_passed": 25,
+  "verified_at": "2026-10-14",
+  "verification_report": "Documentation/unity-prototype-validation.json"
+}

@@ -1,0 +1,195 @@
+using UnityEngine;
+using UnityEngine.AI;
+
+namespace SneakHouse
+{
+    [RequireComponent(typeof(NavMeshAgent))]
+    public class GuardBrain : MonoBehaviour
+    {
+        public enum Mode { Patrol, Investigate, Chase, Search, Return }
+        public Transform[] patrol;
+        public ActorAnimation acting;
+        public float visionDistance = 7.5f, fieldOfView = 84, searchDuration = 7;
+        public Mode State { get; private set; } = Mode.Patrol;
+        public bool CanSeePlayer { get; private set; }
+        public float Suspicion { get; private set; }
+        public bool HasMemory { get; private set; }
+        public Vector3 LastKnownPosition { get; private set; }
+        public float LastSeenTime { get; private set; }
+        public float LastEvidenceTime { get; private set; }
+        public string MemorySource { get; private set; } = "-";
+        public NavMeshAgent Agent { get; private set; }
+        private int waypoint, searchPoint;
+        private float stateSince, dwellUntil, lastVisible = -100;
+        private Vector3 destination;
+        private VisionCone cone;
+        private LineRenderer pathLine;
+        private void Awake()
+        {
+            Agent = GetComponent<NavMeshAgent>(); cone = GetComponent<VisionCone>();
+            pathLine = gameObject.AddComponent<LineRenderer>();
+            pathLine.material = new Material(Shader.Find("Sprites/Default"));
+            pathLine.startColor = pathLine.endColor = new Color(.1f, .62f, .43f, .8f);
+            pathLine.widthMultiplier = .045f; pathLine.useWorldSpace = true; pathLine.positionCount = 0;
+        }
+        private void OnEnable()
+        {
+            GameSession.Noise += Hear; GameSession.SharedAlert += ReceiveAlert;
+            if (Agent != null && NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 1, NavMesh.AllAreas))
+            {
+                if (!Agent.enabled) { transform.position = hit.position; Agent.enabled = true; }
+            }
+        }
+        private void OnDisable() { GameSession.Noise -= Hear; GameSession.SharedAlert -= ReceiveAlert; }
+        private void Start() { SetMode(Mode.Patrol, Time.time); }
+        private void Update()
+        {
+            GameSession game = GameSession.Instance;
+            if (game == null || game.Finished || game.Paused || !Agent.isOnNavMesh) return;
+            Step(Time.deltaTime, Time.time);
+            DrawPath(game.DebugMode);
+        }
+        public bool Sees(Vector3 position)
+        {
+            Vector3 direction = position + Vector3.up * 1.05f - (transform.position + Vector3.up * 1.2f);
+            Vector3 flat = new Vector3(direction.x, 0, direction.z);
+            if (flat.magnitude > visionDistance || Vector3.Angle(transform.forward, flat) > fieldOfView * .5f) return false;
+            return !Physics.Raycast(transform.position + Vector3.up * 1.2f, direction.normalized, direction.magnitude, 1 << 8, QueryTriggerInteraction.Ignore);
+        }
+        public void Step(float delta, float now)
+        {
+            PlayerMotor player = GameSession.Instance.player;
+            CanSeePlayer = Sees(player.transform.position);
+            if (CanSeePlayer)
+            {
+                Remember(player.transform.position, now, "Vision");
+                lastVisible = now;
+                Suspicion = Mathf.Min(1, Suspicion + delta * (player.Sneaking ? .85f : 1.35f));
+                if (Suspicion >= 1 && State != Mode.Chase)
+                {
+                    SetMode(Mode.Chase, now);
+                    GameSession.Instance.Broadcast(this, LastKnownPosition, now);
+                }
+            }
+            else Suspicion = Mathf.Max(0, Suspicion - delta * .55f);
+            if (Vector3.Distance(transform.position, player.transform.position) < .72f &&
+                !Physics.Linecast(transform.position + Vector3.up, player.transform.position + Vector3.up, 1 << 8, QueryTriggerInteraction.Ignore))
+            { GameSession.Instance.End(false); return; }
+            switch (State)
+            {
+                case Mode.Patrol:
+                    if (CanSeePlayer && Suspicion > .08f)
+                    {
+                        Agent.isStopped = true; Face(player.transform.position, delta);
+                    }
+                    else
+                    {
+                        Agent.isStopped = false;
+                        if (HasMemory && Suspicion > .15f && !CanSeePlayer) { SetMode(Mode.Investigate, now); break; }
+                        if (Reached())
+                        {
+                            if (dwellUntil == 0) dwellUntil = now + .65f;
+                            if (now >= dwellUntil) { waypoint = (waypoint + 1) % patrol.Length; dwellUntil = 0; Go(patrol[waypoint].position); }
+                        }
+                    }
+                    break;
+                case Mode.Investigate:
+                    if (Reached()) SetMode(Mode.Search, now);
+                    else if (now - stateSince > 10) SetMode(Mode.Return, now);
+                    break;
+                case Mode.Chase:
+                    if (CanSeePlayer)
+                    {
+                        // Prediction uses observed velocity only while the target is visible.
+                        Go(LastKnownPosition + player.Velocity * .35f);
+                    }
+                    else if (now - lastVisible > .40f) SetMode(Mode.Search, now);
+                    break;
+                case Mode.Search:
+                    if (now - stateSince > searchDuration) { SetMode(Mode.Return, now); break; }
+                    if (Reached())
+                    {
+                        Agent.isStopped = true;
+                        transform.Rotate(0, 50 * delta, 0);
+                        if (dwellUntil == 0) dwellUntil = now + .9f;
+                        if (now >= dwellUntil)
+                        {
+                            searchPoint++; Agent.isStopped = false; dwellUntil = 0;
+                            Go(LastKnownPosition + SearchOffset(searchPoint));
+                        }
+                    }
+                    break;
+                case Mode.Return:
+                    if (Reached()) { HasMemory = false; MemorySource = "-"; SetMode(Mode.Patrol, now); }
+                    break;
+            }
+            float speed = Agent.velocity.magnitude;
+            acting?.Set(speed > 1.7f ? "Run" : speed > .08f ? "Walk" : State == Mode.Search ? "LookAround" : Suspicion > .1f ? "FaceActing" : "Idle");
+            if (cone != null) cone.SetAlert(Suspicion, State == Mode.Chase);
+        }
+        public void Hear(Vector3 point, float radius, string source)
+        {
+            if (GameSession.Instance == null || GameSession.Instance.Finished || CanSeePlayer) return;
+            float attenuation = Physics.Linecast(transform.position + Vector3.up, point + Vector3.up, 1 << 8, QueryTriggerInteraction.Ignore) ? .65f : 1;
+            if (Vector3.Distance(transform.position, point) > radius * attenuation) return;
+            Remember(point, Time.time, source); Suspicion = Mathf.Max(.2f, Suspicion); SetMode(Mode.Investigate, Time.time);
+        }
+        private void ReceiveAlert(GuardBrain sender, Vector3 point, float timestamp)
+        {
+            if (sender == this || State == Mode.Chase || Time.time - timestamp > searchDuration) return;
+            Remember(point, timestamp, "Shared alert"); Suspicion = Mathf.Max(.3f, Suspicion); SetMode(Mode.Search, Time.time);
+        }
+        private void Remember(Vector3 point, float now, string source)
+        {
+            HasMemory = true; LastKnownPosition = point; LastEvidenceTime = now; MemorySource = source;
+            if (source == "Vision") LastSeenTime = now;
+        }
+        private void SetMode(Mode mode, float now)
+        {
+            State = mode; stateSince = now; dwellUntil = 0; Agent.isStopped = false;
+            Agent.speed = mode == Mode.Chase ? 3.05f : mode == Mode.Patrol ? 1.20f : 1.7f;
+            if (mode == Mode.Patrol || mode == Mode.Return)
+            {
+                if (mode == Mode.Return)
+                {
+                    float best = float.PositiveInfinity;
+                    for (int i = 0; i < patrol.Length; i++)
+                    {
+                        float distance = (patrol[i].position - transform.position).sqrMagnitude;
+                        if (distance < best) { best = distance; waypoint = i; }
+                    }
+                }
+                Go(patrol[waypoint].position);
+            }
+            else { searchPoint = 0; Go(LastKnownPosition); }
+        }
+        private static Vector3 SearchOffset(int index)
+        {
+            Vector3[] offsets = { Vector3.right, Vector3.forward, Vector3.left, Vector3.back };
+            return offsets[index % 4] * 1.7f;
+        }
+        private void Go(Vector3 point)
+        {
+            if (!Agent.isOnNavMesh) return;
+            if (NavMesh.SamplePosition(point, out NavMeshHit hit, 2.2f, NavMesh.AllAreas))
+            { destination = hit.position; Agent.SetDestination(destination); }
+        }
+        private bool Reached()
+        {
+            Vector3 flat = transform.position - destination; flat.y = 0;
+            return !Agent.pathPending && flat.sqrMagnitude < .40f * .40f;
+        }
+        private void Face(Vector3 point, float delta)
+        {
+            Vector3 flat = point - transform.position; flat.y = 0;
+            if (flat.sqrMagnitude > .001f) transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(flat), 150 * delta);
+        }
+        private void DrawPath(bool visible)
+        {
+            pathLine.enabled = visible;
+            if (!visible || !Agent.hasPath) { pathLine.positionCount = 0; return; }
+            Vector3[] corners = Agent.path.corners; pathLine.positionCount = corners.Length;
+            for (int i = 0; i < corners.Length; i++) pathLine.SetPosition(i, corners[i] + Vector3.up * .10f);
+        }
+    }
+}

@@ -22,6 +22,9 @@ namespace SneakHouse
         private int waypoint, searchPoint;
         private float stateSince, dwellUntil, lastVisible = -100;
         private Vector3 destination;
+        private HidingSpot witnessedSpot;
+        private HidingSpot checkingSpot;
+        private float checkSince;
         private VisionCone cone;
         private LineRenderer pathLine;
         private void Awake()
@@ -59,7 +62,7 @@ namespace SneakHouse
         public void Step(float delta, float now)
         {
             PlayerMotor player = GameSession.Instance.player;
-            CanSeePlayer = Sees(player.transform.position);
+            CanSeePlayer = !player.IsHidden && Sees(player.transform.position);
             if (CanSeePlayer)
             {
                 Remember(player.transform.position, now, "Vision");
@@ -72,7 +75,7 @@ namespace SneakHouse
                 }
             }
             else Suspicion = Mathf.Max(0, Suspicion - delta * .55f);
-            if (Vector3.Distance(transform.position, player.transform.position) < .72f &&
+            if (!player.IsHidden && Vector3.Distance(transform.position, player.transform.position) < .72f &&
                 !Physics.Linecast(transform.position + Vector3.up, player.transform.position + Vector3.up, 1 << 8, QueryTriggerInteraction.Ignore))
             { GameSession.Instance.End(false); return; }
             switch (State)
@@ -94,7 +97,11 @@ namespace SneakHouse
                     }
                     break;
                 case Mode.Investigate:
-                    if (Reached()) SetMode(Mode.Search, now);
+                    if (Reached())
+                    {
+                        if(CheckHiding())return;
+                        SetMode(Mode.Search, now);
+                    }
                     else if (now - stateSince > 10) SetMode(Mode.Return, now);
                     break;
                 case Mode.Chase:
@@ -109,6 +116,7 @@ namespace SneakHouse
                     if (now - stateSince > searchDuration) { SetMode(Mode.Return, now); break; }
                     if (Reached())
                     {
+                        if(CheckHiding())return;
                         Agent.isStopped = true;
                         transform.Rotate(0, 50 * delta, 0);
                         if (dwellUntil == 0) dwellUntil = now + .9f;
@@ -124,7 +132,7 @@ namespace SneakHouse
                     break;
             }
             float speed = Agent.velocity.magnitude;
-            acting?.Set(speed > 1.7f ? "Run" : speed > .08f ? "Walk" : State == Mode.Search ? "LookAround" : Suspicion > .1f ? "FaceActing" : "Idle");
+            acting?.SetLocomotion(speed, State == Mode.Chase, State == Mode.Search ? "LookAround" : Suspicion > .1f ? "FaceActing" : "Idle");
             if (cone != null) cone.SetAlert(Suspicion, State == Mode.Chase);
         }
         public void Hear(Vector3 point, float radius, string source)
@@ -133,6 +141,31 @@ namespace SneakHouse
             float attenuation = Physics.Linecast(transform.position + Vector3.up, point + Vector3.up, 1 << 8, QueryTriggerInteraction.Ignore) ? .65f : 1;
             if (Vector3.Distance(transform.position, point) > radius * attenuation) return;
             Remember(point, Time.time, source); Suspicion = Mathf.Max(.2f, Suspicion); SetMode(Mode.Investigate, Time.time);
+        }
+        public void NoticeHidingEntry(HidingSpot spot)
+        {
+            witnessedSpot=spot;Remember(spot.Approach,Time.time,"Saw hiding entry");Suspicion=Mathf.Max(.55f,Suspicion);SetMode(Mode.Investigate,Time.time);
+        }
+        private bool CheckHiding()
+        {
+            if(witnessedSpot!=null)
+            {
+                if(TryInspect(witnessedSpot))return true;
+                if(witnessedSpot.Occupant==null)witnessedSpot=null;
+            }
+            // Investigate evidence near a hiding spot; casual patrols do not reveal occupants.
+            foreach(HidingSpot spot in FindObjectsByType<HidingSpot>(FindObjectsSortMode.None))
+                if(HasMemory && Vector3.Distance(spot.Approach,LastKnownPosition)<1.1f && TryInspect(spot))return true;
+            checkingSpot=null;
+            return false;
+        }
+        private bool TryInspect(HidingSpot spot)
+        {
+            if(spot.Occupant==null || Vector3.Distance(transform.position,spot.Approach)>1.15f)return false;
+            if(checkingSpot!=spot){checkingSpot=spot;checkSince=Time.time;GameSession.Instance.Notify("Guard is checking the hiding spot.");}
+            Agent.isStopped=true;acting?.Set("LookAround");Face(spot.anchor.position,Time.deltaTime);
+            if(Time.time-checkSince>=.8f)spot.Inspect(this);
+            return true;
         }
         private void ReceiveAlert(GuardBrain sender, Vector3 point, float timestamp)
         {

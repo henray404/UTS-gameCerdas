@@ -7,6 +7,8 @@ namespace SneakHouse
     [DefaultExecutionOrder(-200)]
     public class GameSession : MonoBehaviour
     {
+        public enum ScreenState { MainMenu, Briefing, Playing, Paused, Results }
+        public ScreenState Phase { get; private set; } = ScreenState.MainMenu;
         public static GameSession Instance { get; private set; }
         public static event Action<Vector3, float, string> Noise;
         public static event Action<GuardBrain, Vector3, float> SharedAlert;
@@ -15,47 +17,87 @@ namespace SneakHouse
         public GuardBrain[] guards;
         [Range(1, 3)] public int activeGuardCount = 1;
         public Font bodyFont, titleFont;
+        [Min(1)] public float targetTime = 240;
         public bool DebugMode { get; private set; }
         public bool Finished { get; private set; }
         public bool Won { get; private set; }
         public bool Paused { get; private set; }
         public int Collected { get; private set; }
         public int AlertReports { get; private set; }
-        public string Message { get; private set; } = "Ambil tiga target, lalu kembali ke pintu masuk.";
+        public string Message { get; private set; } = "Collect all 3 items. Return to the entrance.";
         public float Elapsed { get; private set; }
         public float LastNoiseTime { get; private set; } = -10;
+        public int ResultScore { get; private set; }
+        public int BestScore { get; private set; }
+        public int ObjectivePoints { get; private set; }
+        public int StealthPoints { get; private set; }
+        public int TimePoints { get; private set; }
+        public bool NewRecord { get; private set; }
+        public bool PersistRecords { get; set; } = true;
+        public int ActiveGuards => Mathf.Clamp(activeGuardCount, 1, guards.Length);
+        private string RecordKey => "SneakHouse.Score.v1." + SceneManager.GetActiveScene().name;
+        private static bool reopenBriefing;
         private float messageUntil;
-        private GUIStyle title, text, small, button;
+        private GUIStyle title, text, small, button, secondaryButton;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetStatics() { Instance = null; Noise = null; SharedAlert = null; }
+        private static void ResetStatics() { Instance = null; Noise = null; SharedAlert = null; reopenBriefing = false; }
         private void Awake()
         {
             Instance = this;
-            Time.timeScale = 1;
+            Font.textureRebuilt += OnFontTextureRebuilt;
+            BestScore = PlayerPrefs.GetInt(RecordKey, 0);
             for (int i = 0; i < guards.Length; i++) guards[i].gameObject.SetActive(i < activeGuardCount);
+            gameObject.AddComponent<MissionFlowUI>();
+            SetScreen(reopenBriefing ? ScreenState.Briefing : ScreenState.MainMenu);
+            reopenBriefing = false;
+        }
+        private void SetScreen(ScreenState screen)
+        {
+            Phase = screen;
+            Paused = screen != ScreenState.Playing;
+            Time.timeScale = Paused ? 0 : 1;
+        }
+        public void ShowBriefing()
+        {
+            if (Phase == ScreenState.MainMenu) SetScreen(ScreenState.Briefing);
+        }
+        public void ShowMainMenu()
+        {
+            if (Phase == ScreenState.Briefing) SetScreen(ScreenState.MainMenu);
+            else if (Phase == ScreenState.Playing || Phase == ScreenState.Paused || Phase == ScreenState.Results)
+            {
+                reopenBriefing = false; Time.timeScale = 1;
+                SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+            }
+        }
+        public void BeginMission()
+        {
+            if (Phase == ScreenState.Briefing) SetScreen(ScreenState.Playing);
+        }
+        public void TogglePause()
+        {
+            if (Phase == ScreenState.Playing) SetScreen(ScreenState.Paused);
+            else if (Phase == ScreenState.Paused) SetScreen(ScreenState.Playing);
         }
         private void Update()
         {
-            if (Input.GetKeyDown(KeyCode.F1)) DebugMode = !DebugMode;
-            if (Input.GetKeyDown(KeyCode.R)) Restart();
-            if (!Finished && Input.GetKeyDown(KeyCode.Escape))
-            {
-                Paused = !Paused; Time.timeScale = Paused ? 0 : 1;
-            }
-            if (!Finished && !Paused) Elapsed += Time.deltaTime;
+            if ((Phase == ScreenState.Playing || Phase == ScreenState.Paused) && Input.GetKeyDown(KeyCode.F1)) DebugMode = !DebugMode;
+            if ((Phase == ScreenState.Playing || Phase == ScreenState.Paused || Finished) && Input.GetKeyDown(KeyCode.R)) Restart();
+            if (Input.GetKeyDown(KeyCode.Escape)) TogglePause();
+            if (Phase == ScreenState.Playing) Elapsed += Time.deltaTime;
             if (messageUntil > 0 && Time.time > messageUntil)
             {
-                Message = Collected == targets.Length ? "Semua target didapat. Kembali ke pintu masuk." : "Amati patroli. Lari menimbulkan suara.";
+                Message = Collected == targets.Length ? "All items collected. Return to the entrance." : "Watch the patrol. Running makes noise.";
                 messageUntil = 0;
             }
         }
         public void Notify(string message) { Message = message; messageUntil = Time.time + 3; }
         public void AddLoot(LootTarget target)
         {
-            if (Finished || target.Collected) return;
+            if (Phase != ScreenState.Playing || target.Collected) return;
             target.MarkCollected(); Collected++;
-            Notify("Didapat: " + target.displayName);
+            Notify("Collected: " + target.Label);
         }
         public void EmitNoise(Vector3 point, float radius, string kind)
         {
@@ -68,24 +110,47 @@ namespace SneakHouse
         }
         public void End(bool win)
         {
-            if (Finished) return;
-            Finished = true; Won = win; Paused = false; Time.timeScale = 0;
-            Message = win ? "Tiga target aman. Kamu berhasil keluar." : "Penjaga menangkapmu. Coba rute lain.";
+            if (Phase != ScreenState.Playing) return;
+            Finished = true; Won = win;
+            ObjectivePoints = win ? 6000 : 0;
+            StealthPoints = win ? Mathf.Max(0, 2500 - AlertReports * 500) : 0;
+            TimePoints = win ? Mathf.RoundToInt(1500 * Mathf.Clamp01(1 - Elapsed / Mathf.Max(1, targetTime))) : 0;
+            ResultScore = ObjectivePoints + StealthPoints + TimePoints;
+            NewRecord = win && ResultScore > BestScore;
+            if (NewRecord)
+            {
+                BestScore = ResultScore;
+                if (PersistRecords) { PlayerPrefs.SetInt(RecordKey, BestScore); PlayerPrefs.Save(); }
+            }
+            SetScreen(ScreenState.Results);
+            Message = win ? "All items secured. You made it out." : "Caught by a guard. Try another route.";
         }
         public void Restart()
         {
+            reopenBriefing = true;
             Time.timeScale = 1; SceneManager.LoadScene(SceneManager.GetActiveScene().name);
         }
-        private void OnDestroy() { if (Instance == this) Instance = null; }
+        private void OnFontTextureRebuilt(Font font)
+        {
+            if ((font == bodyFont || font == titleFont) && font != null && font.material != null && font.material.mainTexture != null)
+                font.material.mainTexture.filterMode = FilterMode.Point;
+        }
+        private void OnDestroy()
+        {
+            Font.textureRebuilt -= OnFontTextureRebuilt;
+            if (Instance == this) { Instance = null; Time.timeScale = 1; }
+        }
 
         private void EnsureStyles()
         {
             if (text != null) return;
             text = new GUIStyle(GUI.skin.label) { font = bodyFont, fontSize = 22, wordWrap = true };
-            text.normal.textColor = new Color(.16f, .24f, .19f);
+            foreach (GUIStyleState state in new[] { text.normal, text.hover, text.active, text.focused })
+                state.textColor = LowPolyUI.Ink;
             small = new GUIStyle(text) { fontSize = 17 };
             title = new GUIStyle(text) { font = titleFont, fontSize = 37 };
-            button = new GUIStyle(GUI.skin.button) { font = bodyFont, fontSize = 23, padding = new RectOffset(15, 15, 8, 8) };
+            button = LowPolyUI.ButtonStyle(bodyFont, 23, true);
+            secondaryButton = LowPolyUI.ButtonStyle(bodyFont, 23, false);
         }
         private static void Rect(Rect r, Color colour)
         {
@@ -93,31 +158,42 @@ namespace SneakHouse
         }
         private void OnGUI()
         {
+            if (Phase != ScreenState.Playing && Phase != ScreenState.Paused) return;
             EnsureStyles();
-            float scale = Mathf.Clamp(Screen.width / 1440f, .6f, 1.6f);
+            float scale = Mathf.Min(Screen.width / 1440f, Screen.height / 900f);
             Matrix4x4 old = GUI.matrix; GUI.matrix = Matrix4x4.Scale(Vector3.one * scale);
             float w = Screen.width / scale, h = Screen.height / scale;
-            Color paper = new Color(.98f, .96f, .90f, .94f);
-            Rect(new Rect(24, 22, 342, 228), paper);
-            GUI.Label(new Rect(40, 30, 310, 48), "SNEAK HOUSE", title);
-            GUI.Label(new Rect(40, 79, 310, 28), "VILA / PROTOTYPE 01", small);
+            LowPolyUI.Board(new Rect(24, 22, 300, 106));
             for (int i = 0; i < targets.Length; i++)
-                GUI.Label(new Rect(40, 119 + i * 31, 307, 31), (targets[i].Collected ? "[OK]  " : "[  ]  ") + targets[i].displayName, text);
-            GUI.Label(new Rect(40, 217, 310, 30), Collected + " / " + targets.Length + " target", small);
+            {
+                LowPolyUI.Portrait(new Rect(46 + i * 58, 42, 44, 44), i);
+                if (targets[i].Collected) GUI.Label(new Rect(51 + i * 58, 86, 44, 24), "OK", small);
+            }
+            GUI.Label(new Rect(232, 55, 72, 36), Collected + " / " + targets.Length, text);
+            if(player!=null && player.Distractions!=null)
+            {
+                LowPolyUI.Inset(new Rect(24,144,222,42));
+                GUI.Label(new Rect(42,151,190,30),"[Q] Can  x "+player.Distractions.Remaining,small);
+            }
             float suspicion = 0;
             foreach (GuardBrain g in guards) if (g.gameObject.activeInHierarchy) suspicion = Mathf.Max(suspicion, g.Suspicion);
-            Rect(new Rect(w - 284, 22, 260, 116), paper);
-            GUI.Label(new Rect(w - 267, 35, 224, 32), suspicion >= 1 ? "TERDETEKSI" : suspicion > .05f ? "PENJAGA CURIGA" : "BELUM TERDETEKSI", small);
-            Rect(new Rect(w - 266, 80, 220, 13), new Color(.78f, .80f, .72f));
-            Rect(new Rect(w - 266, 80, 220 * suspicion, 13), suspicion >= 1 ? new Color(.74f, .26f, .17f) : new Color(.75f, .55f, .21f));
-            GUI.Label(new Rect(w - 267, 102, 224, 25), Mathf.FloorToInt(Elapsed / 60).ToString("00") + ":" + Mathf.FloorToInt(Elapsed % 60).ToString("00"), small);
-            Rect(new Rect(24, h - 91, w - 48, 67), paper);
-            GUI.Label(new Rect(40, h - 83, w - 80, 29), Message, text);
-            GUI.Label(new Rect(40, h - 51, w - 80, 26), "WASD gerak  /  Shift lari  /  Ctrl mengendap  /  E ambil  /  F1 debug  /  R ulang  /  Esc jeda", small);
-            if (player != null && !Finished && !Paused && player.NearestLoot != null)
+            LowPolyUI.Board(new Rect(w - 262, 22, 238, 106));
+            GUI.Label(new Rect(w - 238, 40, 190, 28), player.IsHidden ? player.Hiding.Compromised ? "Compromised" : "Hidden" : suspicion >= 1 ? "Detected" : suspicion > .05f ? "Suspicious" : "Undetected", small);
+            LowPolyUI.Inset(new Rect(w - 240, 70, 194, 14));
+            Rect(new Rect(w - 235, 74, 184 * suspicion, 6), suspicion >= 1 ? LowPolyUI.Red : LowPolyUI.Green);
+            GUI.Label(new Rect(w - 238, 89, 190, 24), MissionFlowUI.FormatTime(Elapsed), small);
+            LowPolyUI.Board(new Rect(w / 2 - 310, h - 86, 620, 62));
+            string hint=player.IsHidden?(player.Hiding.Compromised?"Spotted entering! Leave this hiding spot.":player.Hiding.CurrentSpot.HiddenText+". [F] Leave"):Message;
+            GUI.Label(new Rect(w / 2 - 286, h - 70, 572, 33), hint, text);
+            if(!player.IsHidden && player.Hiding!=null && player.Hiding.NearestSpot!=null)
+            {
+                HidingSpot spot=player.Hiding.NearestSpot;Vector3 p=Camera.main.WorldToScreenPoint(spot.Approach+Vector3.up*.45f);
+                GUI.Label(new Rect(p.x/scale-115,(Screen.height-p.y)/scale-30,300,45),"[F] Hide: "+spot.displayName,small);
+            }
+            if (player != null && !player.IsHidden && !Finished && !Paused && player.NearestLoot != null)
             {
                 Vector3 p = Camera.main.WorldToScreenPoint(player.NearestLoot.transform.position + Vector3.up * .45f);
-                GUI.Label(new Rect(p.x / scale - 115, (Screen.height - p.y) / scale - 45, 260, 60), "[E] " + player.NearestLoot.displayName, small);
+                GUI.Label(new Rect(p.x / scale - 115, (Screen.height - p.y) / scale - 45, 260, 60), "[E] " + player.NearestLoot.Label, small);
             }
             if (DebugMode)
             {
@@ -125,23 +201,22 @@ namespace SneakHouse
                 foreach (GuardBrain g in guards)
                 {
                     if (!g.gameObject.activeInHierarchy) continue;
-                    Rect(new Rect(24, y, 397, 142), paper);
-                    GUI.Label(new Rect(38, y + 8, 370, 132),
+                    LowPolyUI.Board(new Rect(24, y + 18, 430, 178));
+                    GUI.Label(new Rect(48, y + 40, 382, 138),
                         g.name + " / " + g.State + "\nCan see: " + g.CanSeePlayer + " | suspicion: " + g.Suspicion.ToString("0.00") +
                         "\nMemory: " + g.MemorySource + " " + g.LastKnownPosition.ToString("F1") +
-                        "\nLast evidence: " + (g.HasMemory ? (Time.time - g.LastEvidenceTime).ToString("0.0") + " s lalu" : "-") +
+                        "\nLast evidence: " + (g.HasMemory ? (Time.time - g.LastEvidenceTime).ToString("0.0") + " s ago" : "-") +
                         "\nPath: " + g.Agent.pathStatus + " | reports: " + AlertReports, small);
-                    y += 154;
+                    y += 192;
                 }
             }
-            if (Finished || Paused)
+            if (Phase == ScreenState.Paused)
             {
-                Rect(new Rect(w / 2 - 260, h / 2 - 110, 520, 232), paper);
-                GUI.Label(new Rect(w / 2 - 238, h / 2 - 92, 476, 54), Finished ? Won ? "BERHASIL KELUAR" : "TERTANGKAP" : "JEDA", title);
-                GUI.Label(new Rect(w / 2 - 238, h / 2 - 31, 476, 59), Message, text);
-                if (GUI.Button(new Rect(w / 2 - 238, h / 2 + 55, 225, 47), "Ulangi misi", button)) Restart();
-                if (Paused && GUI.Button(new Rect(w / 2 + 12, h / 2 + 55, 225, 47), "Lanjut", button))
-                { Paused = false; Time.timeScale = 1; }
+                LowPolyUI.Board(new Rect(w / 2 - 270, h / 2 - 185, 540, 370));
+                GUIStyle centeredTitle = new GUIStyle(title) { alignment = TextAnchor.MiddleCenter };
+                LowPolyUI.Title(new Rect(w / 2 - 230, h / 2 - 151, 460, 64), "PAUSED", centeredTitle);
+                if (LowPolyUI.Button(new Rect(w / 2 - 220, h / 2 - 32, 440, 70), "Resume", button)) TogglePause();
+                if (LowPolyUI.Button(new Rect(w / 2 - 220, h / 2 + 72, 440, 64), "Main Menu", secondaryButton)) ShowMainMenu();
             }
             GUI.matrix = old;
         }

@@ -11,41 +11,65 @@ namespace SneakHouse
         public Vector3 Velocity { get; private set; }
         public bool Sneaking { get; private set; }
         public LootTarget NearestLoot { get; private set; }
+        public PlayerDistraction Distractions { get; private set; }
+        public PlayerHiding Hiding { get; private set; }
+        public bool IsHidden => Hiding!=null && Hiding.IsHidden;
         private CharacterController controller;
-        private float gravity, nextStep;
-        private void Awake() { controller = GetComponent<CharacterController>(); }
+        private float gravity, stepDistance;
+        private void Awake()
+        {
+            controller = GetComponent<CharacterController>();
+            Distractions = GetComponent<PlayerDistraction>();
+            if (Distractions == null) Distractions = gameObject.AddComponent<PlayerDistraction>();
+            Hiding=GetComponent<PlayerHiding>();if(Hiding==null)Hiding=gameObject.AddComponent<PlayerHiding>();
+        }
         private void Update()
         {
             GameSession game = GameSession.Instance;
             if (game == null || game.Finished || game.Paused) { Velocity = Vector3.zero; return; }
+            if(IsHidden){Velocity=Vector3.zero;return;}
             Vector3 input = new Vector3(
                 (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow) ? 1 : 0) - (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow) ? 1 : 0), 0,
                 (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow) ? 1 : 0) - (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow) ? 1 : 0));
-            input = Vector3.ClampMagnitude(input, 1);
-            Sneaking = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.C);
-            bool running = Input.GetKey(KeyCode.LeftShift) && !Sneaking;
+            bool sneak = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.C);
+            Move(input, Input.GetKey(KeyCode.LeftShift), sneak, Time.deltaTime);
+            RefreshLoot();
+            if (Input.GetKeyDown(KeyCode.E)) TryInteract();
+            if (Input.GetKeyDown(KeyCode.Q)) Distractions.TryDrop();
+        }
+        public void Move(Vector3 input, bool running, bool sneak, float delta)
+        {
+            GameSession game = GameSession.Instance;
+            if(game==null || game.Phase!=GameSession.ScreenState.Playing || delta<=0 || IsHidden){Velocity=Vector3.zero;return;}
+            input.y=0; input=Vector3.ClampMagnitude(input,1);Sneaking=sneak;running &= !Sneaking;
             float speed = Sneaking ? sneakSpeed : running ? runSpeed : walkSpeed;
             Vector3 before = transform.position;
             if (controller.isGrounded && gravity < 0) gravity = -2;
-            gravity += Physics.gravity.y * Time.deltaTime;
-            controller.Move((input * speed + Vector3.up * gravity) * Time.deltaTime);
-            Velocity = (transform.position - before) / Mathf.Max(.0001f, Time.deltaTime); Velocity = new Vector3(Velocity.x, 0, Velocity.z);
+            gravity += Physics.gravity.y * delta;
+            controller.Move((input * speed + Vector3.up * gravity) * delta);
+            Velocity = (transform.position - before) / Mathf.Max(.0001f, delta); Velocity = new Vector3(Velocity.x, 0, Velocity.z);
             if (input.sqrMagnitude > .01f)
             {
-                transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(input), 650 * Time.deltaTime);
-                if (Time.time >= nextStep)
+                transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(input), 650 * delta);
+            }
+            // Distance-based steps stop sounds and foot motion when pushing into a wall.
+            if (Velocity.magnitude > .08f)
+            {
+                stepDistance += Vector3.Distance(new Vector3(before.x,0,before.z),new Vector3(transform.position.x,0,transform.position.z));
+                float spacing = running ? .704f : .455f;
+                if (stepDistance >= spacing)
                 {
-                    nextStep = Time.time + (running ? .32f : .50f);
-                    if (!Sneaking) game.EmitNoise(transform.position, running ? 5.3f : 1.25f, running ? "Langkah lari" : "Langkah");
+                    stepDistance %= spacing;
+                    if (!Sneaking) game.EmitNoise(transform.position, running ? 5.3f : 1.25f, running ? "Running footsteps" : "Footsteps");
                 }
             }
-            acting?.Set(Velocity.magnitude < .08f ? "Idle" : running ? "Run" : "Walk", Sneaking ? .7f : 1);
-            RefreshLoot();
-            if (Input.GetKeyDown(KeyCode.E)) TryInteract();
+            else stepDistance = 0;
+            acting?.SetLocomotion(Velocity.magnitude, running);
         }
         public void RefreshLoot()
         {
             NearestLoot = null; float best = 1.35f * 1.35f;
+            if(IsHidden)return;
             foreach (LootTarget loot in GameSession.Instance.targets)
             {
                 if (loot.Collected) continue;
@@ -58,13 +82,14 @@ namespace SneakHouse
         }
         public bool TryInteract()
         {
+            if(IsHidden)return false;
             RefreshLoot(); if (NearestLoot == null) return false;
             GameSession.Instance.AddLoot(NearestLoot); return true;
         }
         public void Teleport(Vector3 point)
         {
             controller.enabled = false; transform.position = point; controller.enabled = true;
-            gravity = 0; Velocity = Vector3.zero; Physics.SyncTransforms();
+            gravity = 0; stepDistance = 0; Velocity = Vector3.zero; Physics.SyncTransforms();
         }
     }
 }

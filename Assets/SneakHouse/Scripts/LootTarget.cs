@@ -5,6 +5,8 @@ namespace SneakHouse
     public class LootTarget : MonoBehaviour
     {
         public string displayName;
+        public string Label => displayName == "Drive rahasia" ? "Data Drive" :
+            displayName == "Jam tangan" ? "Watch" : displayName == "Konsol game" ? "Game Console" : displayName;
         public Transform visual;
         public bool Collected { get; private set; }
         private Vector3 rest;

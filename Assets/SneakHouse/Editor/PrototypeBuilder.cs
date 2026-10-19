@@ -88,8 +88,8 @@ namespace SneakHouseEditor
             GameObject system = new GameObject("MISSION / Change Active Guard Count here");
             RuntimeNavigation navigation = system.AddComponent<RuntimeNavigation>(); navigation.geometry = level;
             GameSession session = system.AddComponent<GameSession>(); session.activeGuardCount = 1;
-            session.bodyFont = AssetDatabase.LoadAssetAtPath<Font>(Root + "Fonts/Barlow-Medium.ttf");
-            session.titleFont = AssetDatabase.LoadAssetAtPath<Font>(Root + "Fonts/ChangaOne-Regular.ttf");
+            session.bodyFont = AssetDatabase.LoadAssetAtPath<Font>(Root + "Fonts/PixelifySans-Variable.ttf");
+            session.titleFont = AssetDatabase.LoadAssetAtPath<Font>(Root + "Fonts/PressStart2P-Regular.ttf");
             session.targets = new[]
             {
                 Loot("confidential_drive", "Drive rahasia", new Vector3(-6.15f, desk.max.y + .03f, 4.10f), .36f),
@@ -213,7 +213,7 @@ namespace SneakHouseEditor
             AnimationClip[] clips=AssetDatabase.LoadAllAssetsAtPath(Root+"Models/Actors/"+file+".fbx").OfType<AnimationClip>().Where(c=>!c.name.StartsWith("__preview__")).ToArray();
             foreach(string name in new[]{"Idle","Walk","Run","LookAround","FaceActing"})
             {
-                AnimationClip clip=clips.FirstOrDefault(c=>c.name.EndsWith(name)||c.name.Contains("|"+name));
+                AnimationClip clip=AssetDatabase.LoadAssetAtPath<AnimationClip>(Root+"Animations/"+file+"_"+name+".anim") ?? clips.FirstOrDefault(c=>c.name.EndsWith(name)||c.name.Contains("|"+name));
                 if(clip==null)continue;AnimatorState state=machine.AddState(name);state.motion=clip;if(name=="Idle")machine.defaultState=state;
             }
             animator.runtimeAnimatorController=controller;
@@ -255,7 +255,7 @@ namespace SneakHouseEditor
             if(!assetPath.Contains("/SneakHouse/Models/"))return;
             ModelImporter importer=(ModelImporter)assetImporter;
             importer.globalScale=1;importer.materialImportMode=ModelImporterMaterialImportMode.ImportStandard;
-            if(assetPath.Contains("/Actors/"))
+            if(assetPath.Contains("/Actors/") || assetPath.Contains("/PortraitCast/"))
             {
                 importer.animationType=ModelImporterAnimationType.Generic;importer.importAnimation=true;
                 ModelImporterClipAnimation[] clips=importer.defaultClipAnimations;
@@ -267,6 +267,7 @@ namespace SneakHouseEditor
         {
             if(!assetPath.Contains("/SneakHouse/Models/"))return;
             string name=material.name.ToLowerInvariant();material.shader=Shader.Find("Standard");material.SetFloat("_Glossiness",.10f);
+            if(assetPath.Contains("/Exterior/")) return;
             Dictionary<string,string> colours=new Dictionary<string,string>
             {
                 {"navydark","182C37"},{"navylight","53747E"},{"navy","2B4856"},{"greyhi","A9B5AC"},{"greydark","596559"},

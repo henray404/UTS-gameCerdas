@@ -17,13 +17,51 @@ namespace SneakHouseEditor
         private readonly List<string> checks=new List<string>();
         private IEnumerator Start()
         {
-            yield return new WaitForSeconds(.35f);
+            GameSession session = GameSession.Instance;
+            session.PersistRecords = false;
             int phase=SessionState.GetInt("SneakHouse.VerifyPhase",0);
+            if (phase == 0)
+            {
+                Check(session.Phase == GameSession.ScreenState.MainMenu && Time.timeScale == 0, "Starts at main menu with simulation frozen");
+                Vector3 start = session.player.transform.position;
+                yield return new WaitForSecondsRealtime(.2f);
+                Check(session.Elapsed == 0 && Vector3.Distance(start, session.player.transform.position) < .001f, "Menu does not advance mission time or player");
+                session.ShowBriefing();
+                Check(session.Phase == GameSession.ScreenState.Briefing && session.Paused, "Main menu opens briefing");
+                session.AddLoot(session.targets[0]);
+                Check(session.Collected == 0, "Briefing blocks objective collection");
+            }
+            else session.ShowBriefing();
+            session.BeginMission();
+            if (phase == 0)
+            {
+                Check(session.Phase == GameSession.ScreenState.Playing && !session.Paused && Time.timeScale == 1, "Briefing starts playable mission");
+                session.TogglePause();
+                Check(session.Phase == GameSession.ScreenState.Paused && Time.timeScale == 0, "Pause freezes simulation");
+                session.TogglePause();
+                Check(session.Phase == GameSession.ScreenState.Playing && Time.timeScale == 1, "Resume restores simulation");
+            }
+            yield return new WaitForSeconds(.35f);
             if(phase==0)
             {
                 Exception error=null;
                 try { RunMainChecks(); } catch(Exception ex) { error=ex; }
                 if(error!=null){Finish(false,error.ToString());yield break;}
+                DontDestroyOnLoad(gameObject);
+                session.Restart();
+                yield return null;
+                yield return new WaitForSecondsRealtime(.15f);
+                session = GameSession.Instance;
+                session.PersistRecords = false;
+                Check(session.Phase == GameSession.ScreenState.Briefing && Time.timeScale == 0, "Retry reloads level into frozen briefing");
+                Check(session.Collected == 0 && !session.Finished && session.Elapsed == 0, "Retry resets objectives, outcome, and timer");
+                foreach (LootTarget target in session.targets) Check(!target.Collected, "Retry restores target " + target.displayName);
+                session.BeginMission();
+                session.End(false);
+                session.ShowMainMenu();
+                yield return null;
+                yield return new WaitForSecondsRealtime(.15f);
+                Check(GameSession.Instance.Phase == GameSession.ScreenState.MainMenu && Time.timeScale == 0, "Results can reload clean main menu");
                 SessionState.SetString("SneakHouse.Passed",string.Join("\n",checks));
                 SessionState.SetInt("SneakHouse.VerifyPhase",1);
                 Time.timeScale=1;EditorApplication.isPlaying=false;
@@ -40,6 +78,9 @@ namespace SneakHouseEditor
                     game.player.Teleport(new Vector3(-3,.05f,-.13f));
                     guard.Step(.1f,Time.time);
                     Check(game.Finished&&!game.Won,"Contact capture triggers lose");
+                    Check(game.Phase==GameSession.ScreenState.Results && game.ResultScore==0 && !game.NewRecord,"Failed mission shows results without score or record");
+                    game.BeginMission();
+                    Check(game.Phase==GameSession.ScreenState.Results,"Results cannot resume completed mission");
                 }
                 catch(Exception ex){error=ex;}
                 Finish(error==null,error?.ToString());
@@ -88,13 +129,27 @@ namespace SneakHouseEditor
             }
             Check(game.Collected==3,"All three pickups recorded");
             Check(extraction.Check(extraction.transform.position)&&game.Finished&&game.Won,"Objective plus extraction triggers win");
+            Check(game.Phase==GameSession.ScreenState.Results && Time.timeScale==0,"Win opens results and freezes simulation");
+            Check(game.ResultScore==game.ObjectivePoints+game.StealthPoints+game.TimePoints && game.ResultScore>0 && game.ResultScore<=10000,"Score breakdown totals correctly within limit");
+            int points=game.ResultScore;
+            game.End(true);
+            Check(game.ResultScore==points,"Repeated completion does not change score");
         }
         private void Check(bool condition,string name)
         {
-            if(!condition)throw new InvalidOperationException("FAILED: "+name);
+            if(!condition)
+            {
+                Finish(false,"FAILED: "+name);
+                throw new InvalidOperationException("FAILED: "+name);
+            }
             checks.Add(name);Debug.Log("SNEAK_HOUSE_CHECK_PASS: "+name);
         }
-        private static string WorkspaceOutput(string name) => Path.GetFullPath(Path.Combine(Application.dataPath,"../../../outputs",name));
+        private static string WorkspaceOutput(string name)
+        {
+            string folder = Path.GetFullPath(Path.Combine(Application.dataPath,"../Documentation/Verification"));
+            Directory.CreateDirectory(folder);
+            return Path.Combine(folder,name);
+        }
         private static void Capture()
         {
             Camera camera=Camera.main;RenderTexture target=RenderTexture.GetTemporary(1440,900,24);

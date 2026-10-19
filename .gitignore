@@ -20,3 +20,37 @@ __pycache__/
 /Recordings/
 sysinfo.txt
 *.log
+# Alat dan catatan kerja lokal
+/Tools/
+/Documentation/
+/DESIGN.md
+/STATUS.json
+/KONTEKS-PROJECT.md
+/AGENTS.md
+/CLAUDE.md
+/.codex/
+/.claude/
+/.agents/
+/.mcp.json
+/mcp.json
+/Start-MCP.cmd
+
+# Integrasi editor lokal dan lock yang dibuat ulang Unity
+/Packages/com.coplaydev.unity-mcp/
+/Packages/packages-lock.json
+/Assets/SneakHouse/Editor/PrototypeEditorBootstrap.cs
+/Assets/SneakHouse/Editor/PrototypeEditorBootstrap.cs.meta
+
+# Rekaman, pemeriksaan lokal, dan pemulihan scene
+/Assets/_Recovery/
+/Assets/_Recovery.meta
+/Assets/SneakHouse/Editor/PrototypePlayChecks.cs
+/Assets/SneakHouse/Editor/PrototypePlayChecks.cs.meta
+/Assets/SneakHouse/Scripts/*PlayChecks.cs
+/Assets/SneakHouse/Scripts/*PlayChecks.cs.meta
+/Assets/SneakHouse/Scripts/MovementDistractionChecks.cs
+/Assets/SneakHouse/Scripts/MovementDistractionChecks.cs.meta
+/Assets/SneakHouse/Scripts/*DemoRecorder.cs
+/Assets/SneakHouse/Scripts/*DemoRecorder.cs.meta
+/Assets/SneakHouse/Scripts/*PreviewRecorder.cs
+/Assets/SneakHouse/Scripts/*PreviewRecorder.cs.meta

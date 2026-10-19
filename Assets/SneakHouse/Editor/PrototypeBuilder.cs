@@ -113,6 +113,7 @@ namespace SneakHouseEditor
             camera.transform.position=new Vector3(0,22,-16);camera.transform.LookAt(new Vector3(0,.25f,.2f));
             camera.orthographic=true;camera.orthographicSize=9.2f;camera.nearClipPlane=.1f;camera.farClipPlane=90;
             camera.clearFlags=CameraClearFlags.SolidColor;camera.backgroundColor=Hex("C9C9A3");camera.gameObject.AddComponent<AudioListener>();
+            ChaseCameraBuilder.Configure(camera, session, level);
             Light sun=new GameObject("Warm afternoon").AddComponent<Light>();sun.type=LightType.Directional;
             sun.transform.rotation=Quaternion.Euler(48,-32,0);sun.color=new Color(1,.91f,.75f);sun.intensity=1.25f;sun.shadows=LightShadows.Soft;
             RenderSettings.ambientMode=AmbientMode.Trilight;RenderSettings.ambientSkyColor=Hex("E0DEC8");RenderSettings.ambientEquatorColor=Hex("B8B69B");RenderSettings.ambientGroundColor=Hex("6E785D");

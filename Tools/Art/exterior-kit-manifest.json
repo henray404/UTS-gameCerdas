@@ -1,0 +1,66 @@
+[
+  {
+    "asset": "garden_tree",
+    "triangles": 152
+  },
+  {
+    "asset": "hedge_section",
+    "triangles": 100
+  },
+  {
+    "asset": "fence_section",
+    "triangles": 144
+  },
+  {
+    "asset": "garden_gate",
+    "triangles": 140
+  },
+  {
+    "asset": "mailbox",
+    "triangles": 54
+  },
+  {
+    "asset": "stepping_stone",
+    "triangles": 24
+  },
+  {
+    "asset": "flower_cluster",
+    "triangles": 1161
+  },
+  {
+    "asset": "grass_clump",
+    "triangles": 7
+  },
+  {
+    "asset": "wooden_crate",
+    "triangles": 180
+  },
+  {
+    "asset": "watering_can",
+    "triangles": 160
+  },
+  {
+    "asset": "hose_coil",
+    "triangles": 108
+  },
+  {
+    "asset": "garden_seat",
+    "triangles": 132
+  },
+  {
+    "asset": "garden_table",
+    "triangles": 176
+  },
+  {
+    "asset": "birdbath",
+    "triangles": 208
+  },
+  {
+    "asset": "laundry_rack",
+    "triangles": 108
+  },
+  {
+    "asset": "porch_lantern",
+    "triangles": 100
+  }
+]

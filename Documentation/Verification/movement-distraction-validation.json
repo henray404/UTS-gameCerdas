@@ -1,0 +1,31 @@
+{
+    "passed": true,
+    "checks": [
+        "Fresh mission supplies three physical distraction cans",
+        "Main menu blocks dropping",
+        "Briefing blocks dropping",
+        "Pause blocks dropping",
+        "Actual walking speed drives playback rate",
+        "Actual running speed drives playback rate",
+        "Sneaking uses measured speed, not fixed animation multiplier",
+        "Sneaking produces no footstep noise",
+        "Wall contact stops walking animation when displacement stops",
+        "Pushing into wall produces no phantom steps",
+        "Q action spawns can and spends exactly one charge",
+        "Can is silent until physical impact",
+        "Cooldown prevents duplicate drop",
+        "Ground collision emits one distraction noise",
+        "Guard remembers actual impact location",
+        "Noise switches nearby guard into investigate/search",
+        "Distraction does not spend mission objectives",
+        "Resting or bouncing can does not spam hearing",
+        "Wall prevents spawning a can through architecture",
+        "Second can can be dropped after cooldown",
+        "Distant guard ignores out-of-range impact",
+        "Last can exhausts inventory",
+        "Empty inventory cannot create more cans",
+        "Results screen blocks dropping",
+        "Retry restores cans and removes previous physical props"
+    ],
+    "failures": []
+}

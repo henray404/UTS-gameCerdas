@@ -1,0 +1,4 @@
+01_bogo_guard / Walk: reference 1.40 m/s, cycle 0.65 s, max IK error 0.0000 m
+01_bogo_guard / Run: reference 3.20 m/s, cycle 0.44 s, max IK error 0.0000 m
+08_stan_guard / Walk: reference 1.40 m/s, cycle 0.65 s, max IK error 0.0000 m
+08_stan_guard / Run: reference 3.20 m/s, cycle 0.44 s, max IK error 0.0000 m

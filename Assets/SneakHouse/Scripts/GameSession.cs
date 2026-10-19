@@ -188,12 +188,14 @@ namespace SneakHouse
             if(!player.IsHidden && player.Hiding!=null && player.Hiding.NearestSpot!=null)
             {
                 HidingSpot spot=player.Hiding.NearestSpot;Vector3 p=Camera.main.WorldToScreenPoint(spot.Approach+Vector3.up*.45f);
-                GUI.Label(new Rect(p.x/scale-115,(Screen.height-p.y)/scale-30,300,45),"[F] Hide: "+spot.displayName,small);
+                bool firstPerson=player.View!=null && player.View.FirstPersonControls;
+                if(firstPerson || p.z>0)GUI.Label(firstPerson?new Rect(w/2-150,h/2+74,360,40):new Rect(p.x/scale-115,(Screen.height-p.y)/scale-30,300,45),"[F] Hide: "+spot.displayName,small);
             }
             if (player != null && !player.IsHidden && !Finished && !Paused && player.NearestLoot != null)
             {
                 Vector3 p = Camera.main.WorldToScreenPoint(player.NearestLoot.transform.position + Vector3.up * .45f);
-                GUI.Label(new Rect(p.x / scale - 115, (Screen.height - p.y) / scale - 45, 260, 60), "[E] " + player.NearestLoot.Label, small);
+                bool firstPerson=player.View!=null && player.View.FirstPersonControls;
+                if(firstPerson || p.z>0)GUI.Label(firstPerson?new Rect(w/2-150,h/2+38,360,40):new Rect(p.x / scale - 115, (Screen.height - p.y) / scale - 45, 260, 60), "[E] " + player.NearestLoot.Label, small);
             }
             if (DebugMode)
             {

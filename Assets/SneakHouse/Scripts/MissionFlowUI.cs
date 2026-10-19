@@ -78,6 +78,7 @@ namespace SneakHouse
                 Card(new Rect(400, 130, 640, 640));
                 Text(442, 166, 556, 80, "HOW TO PLAY", heading);
                 Text(460, 264, 520, 330, "WASD / Arrow   -   Move\nShift   -   Run\nCtrl / C   -   Sneak\nE   -   Collect\nQ   -   Drop can\nF   -   Hide / leave\nEsc   -   Pause\nF1   -   AI Debug", body);
+                Text(450, 598, 540, 36, "Chased: first person / Mouse: look", small);
                 if (Button(new Rect(490, 646, 460, 72), "Back", false)) showGuide = false;
                 return;
             }

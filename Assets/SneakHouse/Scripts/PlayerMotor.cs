@@ -13,12 +13,14 @@ namespace SneakHouse
         public LootTarget NearestLoot { get; private set; }
         public PlayerDistraction Distractions { get; private set; }
         public PlayerHiding Hiding { get; private set; }
+        public ChaseCamera View { get; private set; }
         public bool IsHidden => Hiding!=null && Hiding.IsHidden;
         private CharacterController controller;
         private float gravity, stepDistance;
         private void Awake()
         {
             controller = GetComponent<CharacterController>();
+            View = Camera.main != null ? Camera.main.GetComponent<ChaseCamera>() : null;
             Distractions = GetComponent<PlayerDistraction>();
             if (Distractions == null) Distractions = gameObject.AddComponent<PlayerDistraction>();
             Hiding=GetComponent<PlayerHiding>();if(Hiding==null)Hiding=gameObject.AddComponent<PlayerHiding>();
@@ -32,7 +34,7 @@ namespace SneakHouse
                 (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow) ? 1 : 0) - (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow) ? 1 : 0), 0,
                 (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow) ? 1 : 0) - (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow) ? 1 : 0));
             bool sneak = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.C);
-            Move(input, Input.GetKey(KeyCode.LeftShift), sneak, Time.deltaTime);
+            Move(View != null ? View.MovementDirection(input) : input, Input.GetKey(KeyCode.LeftShift), sneak, Time.deltaTime);
             RefreshLoot();
             if (Input.GetKeyDown(KeyCode.E)) TryInteract();
             if (Input.GetKeyDown(KeyCode.Q)) Distractions.TryDrop();
@@ -48,7 +50,9 @@ namespace SneakHouse
             gravity += Physics.gravity.y * delta;
             controller.Move((input * speed + Vector3.up * gravity) * delta);
             Velocity = (transform.position - before) / Mathf.Max(.0001f, delta); Velocity = new Vector3(Velocity.x, 0, Velocity.z);
-            if (input.sqrMagnitude > .01f)
+            if (View != null && View.FirstPersonControls)
+                transform.rotation = Quaternion.Euler(0, View.Yaw, 0);
+            else if (input.sqrMagnitude > .01f)
             {
                 transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(input), 650 * delta);
             }

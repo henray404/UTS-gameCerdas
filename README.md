@@ -20,6 +20,8 @@ Pemain dapat menjeda permainan, mengulang misi, atau kembali ke menu utama. Meng
 - **Distraksi:** gunakan tiga kaleng untuk memancing penjaga memeriksa lokasi bunyi benturan. Kaleng terpisah dari barang target misi.
 - **Bersembunyi:** manfaatkan semak, tenda, atau kolong meja. Saat bersembunyi, pemain tidak dapat bergerak, mengambil target, atau menjatuhkan kaleng.
 - **Risiko ketahuan:** penjaga yang melihat pemain masuk ke tempat persembunyian tetap mengingat lokasinya dan dapat memeriksanya. Suara di dekat tempat persembunyian juga dapat memicu pemeriksaan.
+- **Kamera pengejaran:** saat dikejar, kamera turun secara halus dari top-down ke first person. WASD mengikuti arah pandang dan mouse digunakan untuk menoleh. Setelah pengejaran berhenti selama beberapa detik atau pemain bersembunyi, kamera kembali ke tampilan atas. Pause melepas kursor.
+- **Tekanan pengejaran:** detak jantung, napas, dengung rendah, dan langkah penjaga menambah ketegangan. Semakin dekat pengejar, semakin kuat tekanan suara dan visual. Sudut layar menggelap, kamera bergetar ringan, dan suara taman meredup. Efek mereda saat lolos dan berhenti ketika pause atau misi selesai.
 
 ## Perilaku penjaga
 
@@ -32,6 +34,7 @@ Saat kehilangan jejak, penjaga mencari di sekitar posisi terakhir yang diketahui
 | Tombol | Aksi |
 | --- | --- |
 | WASD / tombol arah | Bergerak |
+| Mouse | Menoleh saat first person |
 | Shift | Berlari |
 | Ctrl / C | Mengendap |
 | E | Mengambil target terdekat |

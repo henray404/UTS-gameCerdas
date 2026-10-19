@@ -21,10 +21,12 @@ namespace SneakHouse
         public AudioSource wind, birds, water;
         private Vector3[] leafOrigins;
         private float clock, nextBird = 6;
+        private ChaseAtmosphere chaseAtmosphere;
         public float AnimationClock => clock;
 
         private void Awake()
         {
+            if (Camera.main != null) chaseAtmosphere = Camera.main.GetComponent<ChaseAtmosphere>();
             foreach (Sway sway in sways) if (sway.target != null)
             {
                 sway.rest = sway.target.localRotation;
@@ -70,6 +72,8 @@ namespace SneakHouse
                 foreach (GuardBrain guard in game.guards)
                     if (guard != null && guard.isActiveAndEnabled && guard.Suspicion > .4f) { duck = .4f; break; }
             float gain = ambienceVolume * duck * (paused ? 0 : 1);
+            if (chaseAtmosphere != null && chaseAtmosphere.isActiveAndEnabled)
+                gain *= Mathf.Lerp(1, .18f, chaseAtmosphere.Intensity);
             if (wind != null) wind.volume = .13f * gain;
             if (water != null) water.volume = .10f * gain;
             if (birds != null)

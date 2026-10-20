@@ -27,14 +27,15 @@ namespace SneakHouse
             if (mesh == null || Time.time < nextUpdate) return; nextUpdate = Time.time + .08f;
             const int segments = 28;
             Vector3[] vertices = new Vector3[segments + 2]; int[] triangles = new int[segments * 3];
-            Vector3 origin = transform.position + Vector3.up * 1.2f;
-            vertices[0] = transform.InverseTransformPoint(new Vector3(origin.x, .045f, origin.z));
+            Vector3 origin = transform.position + Vector3.up * guard.eyeHeight;
+            float floor = transform.position.y + .045f;
+            vertices[0] = transform.InverseTransformPoint(new Vector3(origin.x, floor, origin.z));
             for (int i = 0; i <= segments; i++)
             {
                 float angle = -guard.fieldOfView / 2 + guard.fieldOfView * i / segments;
                 Vector3 direction = Quaternion.AngleAxis(angle, Vector3.up) * transform.forward;
                 float distance = Physics.Raycast(origin, direction, out RaycastHit hit, guard.visionDistance, 1 << 8, QueryTriggerInteraction.Ignore) ? hit.distance : guard.visionDistance;
-                Vector3 end = origin + direction * distance; end.y = .045f;
+                Vector3 end = origin + direction * distance; end.y = floor;
                 vertices[i + 1] = transform.InverseTransformPoint(end);
                 if (i < segments) { triangles[i * 3] = 0; triangles[i * 3 + 1] = i + 2; triangles[i * 3 + 2] = i + 1; }
             }

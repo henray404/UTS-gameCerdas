@@ -15,7 +15,7 @@ namespace SneakHouse
         public PlayerMotor player;
         public LootTarget[] targets;
         public GuardBrain[] guards;
-        [Range(1, 3)] public int activeGuardCount = 1;
+        [Range(1, 4)] public int activeGuardCount = 3;
         public Font bodyFont, titleFont;
         [Min(1)] public float targetTime = 240;
         public bool DebugMode { get; private set; }
@@ -35,7 +35,7 @@ namespace SneakHouse
         public bool NewRecord { get; private set; }
         public bool PersistRecords { get; set; } = true;
         public int ActiveGuards => Mathf.Clamp(activeGuardCount, 1, guards.Length);
-        private string RecordKey => "SneakHouse.Score.v1." + SceneManager.GetActiveScene().name;
+        private string RecordKey => "SneakHouse.Score.v1." + SceneManager.GetActiveScene().name + "." + (GetComponent<HouseShell>() == null ? "0" : GetComponent<HouseShell>().VariantIndex.ToString());
         private static bool reopenBriefing;
         private float messageUntil;
         private GUIStyle title, text, small, button, secondaryButton;
@@ -130,6 +130,11 @@ namespace SneakHouse
             reopenBriefing = true;
             Time.timeScale = 1; SceneManager.LoadScene(SceneManager.GetActiveScene().name);
         }
+        public void NewContract()
+        {
+            InteriorLayout.NewContract(); HouseShell.NewContract(); reopenBriefing = true;
+            Time.timeScale = 1; SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+        }
         private void OnFontTextureRebuilt(Font font)
         {
             if ((font == bodyFont || font == titleFont) && font != null && font.material != null && font.material.mainTexture != null)
@@ -170,6 +175,9 @@ namespace SneakHouse
                 if (targets[i].Collected) GUI.Label(new Rect(51 + i * 58, 86, 44, 24), "OK", small);
             }
             GUI.Label(new Rect(232, 55, 72, 36), Collected + " / " + targets.Length, text);
+            FloorCutaway floor = GetComponent<FloorCutaway>();
+            if (GetComponent<HouseShell>() != null && GetComponent<HouseShell>().HasUpperFloor && floor != null)
+                GUI.Label(new Rect(232,89,72,28),floor.FloorNumber+"F",small);
             if(player!=null && player.Distractions!=null)
             {
                 LowPolyUI.Inset(new Rect(24,144,222,42));
@@ -182,6 +190,19 @@ namespace SneakHouse
             LowPolyUI.Inset(new Rect(w - 240, 70, 194, 14));
             Rect(new Rect(w - 235, 74, 184 * suspicion, 6), suspicion >= 1 ? LowPolyUI.Red : LowPolyUI.Green);
             GUI.Label(new Rect(w - 238, 89, 190, 24), MissionFlowUI.FormatTime(Elapsed), small);
+            if (player.Stamina != null)
+            {
+                PlayerStamina stamina = player.Stamina;
+                LowPolyUI.Inset(new Rect(w - 262, 144, 238, 64));
+                GUI.Label(new Rect(w - 238, 151, 190, 24), stamina.Exhausted ? "RECOVERING" : "STAMINA", small);
+                Color fill = stamina.Exhausted ? LowPolyUI.Red : stamina.Normalized < .3f ? LowPolyUI.Gold : LowPolyUI.Green;
+                for (int i = 0; i < 10; i++)
+                {
+                    Rect(new Rect(w - 238 + i * 19, 183, 16, 8), new Color(.24f, .21f, .16f, .22f));
+                    float amount = Mathf.Clamp01(stamina.Normalized * 10 - i);
+                    if (amount > 0) Rect(new Rect(w - 238 + i * 19, 183, 16 * amount, 8), fill);
+                }
+            }
             LowPolyUI.Board(new Rect(w / 2 - 310, h - 86, 620, 62));
             string hint=player.IsHidden?(player.Hiding.Compromised?"Spotted entering! Leave this hiding spot.":player.Hiding.CurrentSpot.HiddenText+". [F] Leave"):Message;
             GUI.Label(new Rect(w / 2 - 286, h - 70, 572, 33), hint, text);
@@ -199,17 +220,38 @@ namespace SneakHouse
             }
             if (DebugMode)
             {
-                float y = 270;
+                InteriorLayout interior = GetComponent<InteriorLayout>();
+                if (interior != null)
+                {
+                    LowPolyUI.Inset(new Rect(24, 197, 430, 32));
+                    GUI.Label(new Rect(42, 200, 400, 28), "Interior " + interior.CurrentSeed +
+                        (interior.UsingFallback ? " / Fallback" : interior.Validated ? " / Valid" : " / Invalid"), small);
+                }
+                GuardEncounter encounter = GetComponent<GuardEncounter>();
+                if (encounter != null)
+                {
+                    LowPolyUI.Inset(new Rect(24, 234, 430, 42));
+                    GUI.Label(new Rect(42, 242, 400, 30), "Encounter " + (encounter.CurrentPlan == null ? "fallback" : encounter.CurrentPlan.seed.ToString()) +
+                        (encounter.Validated ? " / Valid" : " / Fallback"), small);
+                }
+                HouseShell shell = GetComponent<HouseShell>();
+                if (shell != null)
+                {
+                    LowPolyUI.Inset(new Rect(24,282,560,38));
+                    GUI.Label(new Rect(42,287,530,28),shell.Label + " / " + shell.UsableArea.ToString("0") + " m2 / seed " + shell.CurrentSeed,small);
+                }
+                int card = 0;
                 foreach (GuardBrain g in guards)
                 {
                     if (!g.gameObject.activeInHierarchy) continue;
-                    LowPolyUI.Board(new Rect(24, y + 18, 430, 178));
-                    GUI.Label(new Rect(48, y + 40, 382, 138),
-                        g.name + " / " + g.State + "\nCan see: " + g.CanSeePlayer + " | suspicion: " + g.Suspicion.ToString("0.00") +
+                    float x = 24 + (card % 2)*450, y = 326 + (card/2)*184;
+                    LowPolyUI.Board(new Rect(x, y, 430, 172));
+                    GUI.Label(new Rect(x+20, y+18, 390, 148),
+                        g.characterName + " / " + g.patrolZone + " / " + g.State + "\nCan see: " + g.CanSeePlayer + " | suspicion: " + g.Suspicion.ToString("0.00") +
                         "\nMemory: " + g.MemorySource + " " + g.LastKnownPosition.ToString("F1") +
                         "\nLast evidence: " + (g.HasMemory ? (Time.time - g.LastEvidenceTime).ToString("0.0") + " s ago" : "-") +
                         "\nPath: " + g.Agent.pathStatus + " | reports: " + AlertReports, small);
-                    y += 192;
+                    card++;
                 }
             }
             if (Phase == ScreenState.Paused)

@@ -7,6 +7,7 @@ namespace SneakHouse
     {
         private GameSession game;
         private bool showGuide;
+        private bool showCredits;
         private GUIStyle heading, body, small, number, action, secondary;
         private readonly Color ink = LowPolyUI.Ink;
         private readonly Color muted = LowPolyUI.Muted;
@@ -73,13 +74,24 @@ namespace SneakHouse
         }
         private void MainMenu()
         {
+            if (showCredits)
+            {
+                Card(new Rect(330, 130, 780, 640));
+                Text(380, 166, 680, 80, "MUSIC CREDITS", heading);
+                Text(380, 276, 680, 132, "Sneaky Snitch\nKevin MacLeod (incompetech.com)\nCC BY 4.0\ncreativecommons.org/licenses/by/4.0/", small);
+                Text(380, 440, 680, 114, "Pursuit / Vicegrip of Pursuit\nSudocolon - OpenGameArt.org\nCC0 / Public domain", small);
+                Text(380, 566, 680, 52, "Playback edits and full asset credits: Audio-Credits.txt", small);
+                if (Button(new Rect(490, 646, 460, 72), "Back", false)) showCredits = false;
+                return;
+            }
             if (showGuide)
             {
-                Card(new Rect(400, 130, 640, 640));
+                Card(new Rect(400, 100, 640, 700));
                 Text(442, 166, 556, 80, "HOW TO PLAY", heading);
-                Text(460, 264, 520, 330, "WASD / Arrow   -   Move\nShift   -   Run\nCtrl / C   -   Sneak\nE   -   Collect\nQ   -   Drop can\nF   -   Hide / leave\nEsc   -   Pause\nF1   -   AI Debug", body);
+                Text(460, 264, 520, 330, "WASD / Arrow   -   Move\nShift   -   Sprint (stamina)\nCtrl / C   -   Sneak\nE   -   Collect\nQ   -   Drop can\nF   -   Hide / leave\nEsc   -   Pause\nF1   -   AI Debug", body);
                 Text(450, 598, 540, 36, "Chased: first person / Mouse: look", small);
-                if (Button(new Rect(490, 646, 460, 72), "Back", false)) showGuide = false;
+                if (Button(new Rect(490, 640, 460, 52), "Music Credits", false)) showCredits = true;
+                if (Button(new Rect(490, 710, 460, 60), "Back", false)) showGuide = false;
                 return;
             }
             Card(new Rect(460, 170, 520, 560));
@@ -87,7 +99,7 @@ namespace SneakHouse
             int logoSize = heading.fontSize; heading.fontSize = 48;
             LowPolyUI.Title(new Rect(454, 142, 532, 160), "SNEAK\nHOUSE", heading, true);
             heading.fontSize = logoSize;
-            if (Button(new Rect(510, 370, 420, 76), "Start Mission")) game.ShowBriefing();
+            if (Button(new Rect(510, 370, 420, 76), "Start Mission")) game.NewContract();
             if (Button(new Rect(510, 474, 420, 68), "How to Play", false)) showGuide = true;
             if (Button(new Rect(510, 570, 420, 68), "Quit", false)) Quit();
             LowPolyUI.Ornament(new Rect(407, 239, 133, 133), 0, -14);
@@ -99,7 +111,8 @@ namespace SneakHouse
         {
             Card(new Rect(360, 125, 720, 650));
             int size = heading.fontSize; heading.fontSize = 26;
-            Text(398, 166, 644, 80, "COLLECTOR'S HOUSE", heading);
+            HouseShell shell = game.GetComponent<HouseShell>();
+            Text(398, 166, 644, 80, shell == null ? "COLLECTOR'S HOUSE" : shell.Label.ToUpperInvariant(), heading);
             heading.fontSize = size;
             Text(410, 266, 620, 70, "Collect all 3 items. Return to the entrance.", body);
             for (int i = 0; i < game.targets.Length; i++)
@@ -109,6 +122,8 @@ namespace SneakHouse
                 Text(x, 490, 200, 46, game.targets[i].Label, small);
             }
             Text(410, 560, 620, 35, game.ActiveGuards + (game.ActiveGuards == 1 ? " guard on patrol" : " guards on patrol"), small);
+            GuardEncounter encounter = game.GetComponent<GuardEncounter>();
+            if (encounter != null) Text(410, 600, 620, 32, encounter.RosterLabel(), small);
             if (Button(new Rect(410, 650, 300, 74), "Enter House")) game.BeginMission();
             if (Button(new Rect(730, 650, 300, 74), "Back", false)) game.ShowMainMenu();
         }

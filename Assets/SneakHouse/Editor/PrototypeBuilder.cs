@@ -87,7 +87,7 @@ namespace SneakHouseEditor
 
             GameObject system = new GameObject("MISSION / Change Active Guard Count here");
             RuntimeNavigation navigation = system.AddComponent<RuntimeNavigation>(); navigation.geometry = level;
-            GameSession session = system.AddComponent<GameSession>(); session.activeGuardCount = 1;
+            GameSession session = system.AddComponent<GameSession>(); session.activeGuardCount = 3;
             session.bodyFont = AssetDatabase.LoadAssetAtPath<Font>(Root + "Fonts/PixelifySans-Variable.ttf");
             session.titleFont = AssetDatabase.LoadAssetAtPath<Font>(Root + "Fonts/PressStart2P-Regular.ttf");
             session.targets = new[]
@@ -103,7 +103,6 @@ namespace SneakHouseEditor
                 Guard("Bogo / NPC opsional 2", new Vector3(-2.9f,.06f,3.1f), new[]{V(-2.9f,3.1f),V(-6.2f,2.5f),V(-2.9f,3.1f),V(-2.9f,-.2f)}),
                 Guard("Bogo / NPC opsional 3", new Vector3(4,.06f,3.1f), new[]{V(4,3.1f),V(6.55f,2.55f),V(4,3.1f),V(4,-.1f)})
             };
-            for (int i=1;i<session.guards.Length;i++) session.guards[i].gameObject.SetActive(false);
             GameObject exit = new GameObject("EXTRACTION / Kembali ke pintu masuk");
             exit.transform.position = new Vector3(-9,.08f,-4.45f); exit.AddComponent<ExtractionZone>();
             Ring(exit.transform, .95f, new Color(.30f,.65f,.48f), .07f);
@@ -119,6 +118,7 @@ namespace SneakHouseEditor
             RenderSettings.ambientMode=AmbientMode.Trilight;RenderSettings.ambientSkyColor=Hex("E0DEC8");RenderSettings.ambientEquatorColor=Hex("B8B69B");RenderSettings.ambientGroundColor=Hex("6E785D");
             QualitySettings.shadowDistance=50;QualitySettings.antiAliasing=4;
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene(),ScenePath);
+            ThreeGuardBuilder.Apply();
             EditorBuildSettings.scenes=new[]{new EditorBuildSettingsScene(ScenePath,true)};
             AssetDatabase.SaveAssets();
             SceneView view=SceneView.lastActiveSceneView;

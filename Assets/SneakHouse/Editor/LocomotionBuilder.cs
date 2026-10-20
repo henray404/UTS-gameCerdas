@@ -41,7 +41,7 @@ namespace SneakHouseEditor
             System.IO.Directory.CreateDirectory("Documentation/Verification");System.IO.File.WriteAllLines("Documentation/Verification/locomotion-calibration.txt",reports);
             AssetDatabase.SaveAssets();EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
         }
-        private static AnimationClip Bake(ActorAnimation acting,AnimationClip source,float duration,float reference,float duty,out float maxError)
+        internal static AnimationClip Bake(ActorAnimation acting,AnimationClip source,float duration,float reference,float duty,out float maxError)
         {
             GameObject dummy=UnityEngine.Object.Instantiate(acting.animator.gameObject);dummy.name="Locomotion bake / temporary";dummy.hideFlags=HideFlags.HideAndDontSave;dummy.transform.position=Vector3.zero;
             maxError=0;

@@ -13,6 +13,31 @@ namespace SneakHouse
         private NavMeshDataInstance handle;
         private void Awake()
         {
+            RebuildValidated();
+            foreach (NavMeshAgent agent in FindObjectsByType<NavMeshAgent>(FindObjectsSortMode.None))
+            {
+                agent.enabled = false;
+                if (NavMesh.SamplePosition(agent.transform.position, out NavMeshHit hit, 1, NavMesh.AllAreas)) agent.transform.position = hit.position;
+                agent.enabled = true;
+            }
+        }
+        public bool RebuildValidated()
+        {
+            Rebuild();
+            InteriorLayout interior = GetComponent<InteriorLayout>();
+            if (interior != null && !interior.ValidatePaths())
+            {
+                string reason = interior.ValidationMessage;
+                GetComponent<HouseShell>()?.UseFallback();
+                interior.UseFallback(reason); Rebuild(); interior.ValidatePaths();
+                Debug.LogWarning("Interior rejected; using authored furniture. " + reason,this);
+            }
+            return interior == null || interior.Validated;
+        }
+        public void Rebuild()
+        {
+            if (handle.valid) handle.Remove();
+            if (data != null) Destroy(data);
             List<NavMeshBuildSource> sources = new List<NavMeshBuildSource>();
             NavMeshBuilder.CollectSources(geometry, 1 << 8, NavMeshCollectGeometry.PhysicsColliders, 0, new List<NavMeshBuildMarkup>(), sources);
             NavMeshBuildSettings settings = NavMesh.GetSettingsByID(0);
@@ -21,12 +46,7 @@ namespace SneakHouse
             data = NavMeshBuilder.BuildNavMeshData(settings, sources, bounds, Vector3.zero, Quaternion.identity);
             if (data == null) { Debug.LogError("NavMesh could not be built."); return; }
             handle = NavMesh.AddNavMeshData(data);
-            foreach (NavMeshAgent agent in FindObjectsByType<NavMeshAgent>(FindObjectsSortMode.None))
-            {
-                agent.enabled = false;
-                if (NavMesh.SamplePosition(agent.transform.position, out NavMeshHit hit, 1, NavMesh.AllAreas)) agent.transform.position = hit.position;
-                agent.enabled = true;
-            }
+            GetComponent<HouseShell>()?.MeasureNavigation();
         }
         private void OnDestroy() { if (handle.valid) handle.Remove(); if (data != null) Destroy(data); }
     }

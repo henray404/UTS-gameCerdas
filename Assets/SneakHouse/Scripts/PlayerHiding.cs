@@ -33,7 +33,7 @@ namespace SneakHouse
             foreach(HidingSpot spot in spots)
             {
                 if(spot==null || !spot.isActiveAndEnabled || spot.Occupant!=null)continue;
-                Vector3 offset=spot.Approach-transform.position;offset.y=0;
+                Vector3 offset=spot.Approach-transform.position;if(Mathf.Abs(offset.y)>.75f)continue;offset.y=0;
                 if(offset.sqrMagnitude>spot.interactionRadius*spot.interactionRadius || offset.sqrMagnitude>=best)continue;
                 if(Physics.Linecast(transform.position+Vector3.up*.7f,spot.Approach+Vector3.up*.7f,1<<8,QueryTriggerInteraction.Ignore))continue;
                 best=offset.sqrMagnitude;NearestSpot=spot;

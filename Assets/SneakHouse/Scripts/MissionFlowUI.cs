@@ -7,13 +7,20 @@ namespace SneakHouse
     {
         private GameSession game;
         private bool showGuide, showCredits, showRecords, speedBoard;
-        private int selectedLevel = 1, boardLevel = 1;
+        private int boardLevel = 1;
+        private LevelSelectionUI levelMenu;
         private GUIStyle heading, body, small, number, action, secondary, row, selectedRow, left;
         private GUIStyle tab, selectedTab, cell, cellRight, header, headerRight, badge;
         private readonly Color ink = LowPolyUI.Ink;
         private readonly Color muted = LowPolyUI.Muted;
 
-        private void Awake() { game = GetComponent<GameSession>(); selectedLevel = boardLevel = game.Level.Number; }
+        private void Awake()
+        {
+            game = GetComponent<GameSession>();
+            boardLevel = game.Level.Number;
+            levelMenu = new LevelSelectionUI(game);
+        }
+        private void OnDestroy() { levelMenu?.Dispose(); }
         private GUIStyle Label(int size, Color colour, Font font)
         {
             GUIStyle style = new GUIStyle(GUI.skin.label) { font = font, fontSize = size, wordWrap = true };
@@ -30,9 +37,9 @@ namespace SneakHouse
             number = Label(60, ink, game.titleFont);
             heading.alignment = number.alignment = TextAnchor.MiddleCenter;
             body.alignment = small.alignment = TextAnchor.MiddleCenter;
-            left = new GUIStyle(small) { alignment = TextAnchor.MiddleLeft };
             action = LowPolyUI.ButtonStyle(game.bodyFont, 26, true);
             secondary = LowPolyUI.ButtonStyle(game.bodyFont, 25, false);
+            left = new GUIStyle(small) { alignment = TextAnchor.MiddleLeft };
             row = LowPolyUI.ButtonStyle(game.bodyFont, 21, false);
             selectedRow = LowPolyUI.ButtonStyle(game.bodyFont, 21, true);
             row.alignment = selectedRow.alignment = TextAnchor.MiddleLeft;
@@ -83,7 +90,7 @@ namespace SneakHouse
             switch (game.Phase)
             {
                 case GameSession.ScreenState.MainMenu: MainMenu(); break;
-                case GameSession.ScreenState.LevelSelect: LevelSelect(); break;
+                case GameSession.ScreenState.LevelSelect: levelMenu.Draw(); break;
                 case GameSession.ScreenState.Briefing: Briefing(); break;
                 case GameSession.ScreenState.Results: Results(); break;
             }
@@ -236,51 +243,7 @@ namespace SneakHouse
         }
         private void OpenLevels()
         {
-            selectedLevel = Mathf.Clamp(game.Progress.HighestUnlocked, 1, CampaignLevels.Count);
-            game.ShowLevelSelect();
-        }
-        private string Status(int level)
-        {
-            if (game.Progress.IsCompleted(level)) return "COMPLETE";
-            return game.Progress.IsUnlocked(level) ? "AVAILABLE" : "LOCKED";
-        }
-        private void LevelSelect()
-        {
-            Card(new Rect(100, 70, 1240, 770));
-            LowPolyUI.Plank(new Rect(76, 40, 1288, 115));
-            LowPolyUI.Title(new Rect(145, 55, 1150, 70), "THE MISSION BOARD", heading, true);
-            Text(150, 160, 1140, 36, "Complete each escape to unlock the next contract. Completed levels stay replayable.", small);
-            for (int i = 1; i <= CampaignLevels.Count; i++)
-            {
-                CampaignLevel level = CampaignLevels.Get(i);
-                string label = i.ToString("00") + "   " + level.Name + "\n       " + Status(i) + "  /  " + level.MapName;
-                if (LowPolyUI.Button(new Rect(150, 218 + (i - 1) * 84, 560, 74), label,
-                    i == selectedLevel ? selectedRow : row)) selectedLevel = i;
-            }
-            LevelDetail(CampaignLevels.Get(selectedLevel));
-            if (Button(new Rect(150, 750, 250, 58), "Main Menu", false)) game.ShowMainMenu();
-            bool enabled = GUI.enabled;
-            GUI.enabled = enabled && game.Progress.IsUnlocked(selectedLevel);
-            if (Button(new Rect(790, 744, 480, 66), "Play Level " + selectedLevel)) game.StartLevel(selectedLevel);
-            GUI.enabled = enabled;
-        }
-        private void LevelDetail(CampaignLevel level)
-        {
-            LowPolyUI.Inset(new Rect(760, 216, 530, 500));
-            int titleSize = heading.fontSize;
-            heading.fontSize = Mathf.Min(28, Mathf.FloorToInt(440f / level.Name.Length));
-            Text(790, 238, 470, 60, level.Name.ToUpperInvariant(), heading);
-            heading.fontSize = titleSize;
-            Text(790, 304, 470, 48, level.MapName, body);
-            Text(800, 368, 450, 32, level.Guards + (level.Guards == 1 ? " guard" : " guards") + "   /   " +
-                level.TargetCount + (level.TargetCount == 1 ? " item" : " items") + "   /   " + level.Cans + " cans", left);
-            Text(800, 408, 450, 32, "Difficulty: " + level.DifficultyScore.ToString("0") + " / 100", left);
-            Text(800, 448, 450, 32, "Sight: " + level.VisionDistance.ToString("0.#") + " m / " + level.FieldOfView.ToString("0") + " deg   Search: " + level.SearchSeconds.ToString("0") + " s", left);
-            Text(800, 488, 450, 32, "Pace: " + FormatTime(level.ReferenceSeconds) + " (score only, no time limit)", left);
-            Text(800, 528, 450, 32, "Best: " + Points(game.Scores.BestScore(level.Number)) + "   Fastest: " + Split(game.Scores.BestTime(level.Number)), left);
-            Text(800, 568, 450, 84, level.TacticalHint, left);
-            string status = game.Progress.IsUnlocked(level.Number) ? Status(level.Number) : "Finish Level " + (level.Number - 1) + " to unlock.";
-            Text(800, 656, 450, 40, status, small);
+            levelMenu.Open();
         }
         private void Briefing()
         {

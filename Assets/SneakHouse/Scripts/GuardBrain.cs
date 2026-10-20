@@ -259,7 +259,7 @@ namespace SneakHouse
         }
         private void BeginDwell(float now)
         {
-            Idling = idleMax > 0 && Random.value < idleChance;
+            Idling = peekIndex < 0 && idleMax > 0 && Random.value < idleChance;
             dwellUntil = now + (Idling ? Random.Range(idleMin, idleMax) : patrolPause);
         }
         // Home loop; every peekEvery laps the guard also walks the peek waypoints once.

@@ -10,12 +10,16 @@ Tests/run-campaign-rules.sh
 Tests/run-campaign-rules.sh /path/to/Editor/Unity
 ```
 
-This compiles the real `CampaignLevels.cs`, `ScoreRules.cs`, and `ScoreData.cs` into two test executables. No Unity process, external test package, or game save is needed. Expected result:
+This compiles the real `CampaignLevels.cs`, `PatrolPlans.cs`, `ScoreRules.cs`, and `ScoreData.cs` into two test executables. No Unity process, external test package, or game save is needed. Expected result:
 
 ```
-PASS: 123 campaign assertions
+PASS: 426 campaign assertions
 PASS: 55 score assertions
 ```
+
+The campaign tests also cover guard balance: time to detect falls every level (at least 1 s at 3 m, and several seconds on level 1), sneaking always delays detection, idle posts shorten, hearing sharpens, alerts carry further, chasers persist longer, one patrol beat per active guard, home loops keep each level's clearance from every pickup, and some guard's peek trip passes every pickup.
+
+On Windows, PowerShell can run the same compile directly with Unity's Mono (`Editor\Data\MonoBleedingEdge\bin\mono.exe` and `lib\mono\4.5\mcs.exe`) when bash is unavailable.
 
 The score tests cover the formula bounds, top-five score and speed boards, tie-breaks, legacy migration (legacy entries never enter speed boards), corrupt-data normalization, profile name fallback, and score/speed totals.
 
@@ -123,3 +127,12 @@ The user subsequently reported that the original editor still showed missing pre
 - The v2 report records `menuLoaded` separately from `resourcesLoaded`; a menu recovery PASS does not claim the editor's Resources lookup recovered. The screenshot callback waits up to180 seconds for the user to open level selection without changing gameplay state.
 - Updated isolated regression:167 assertions passed, including six checks that the loader preserves valid Resources assets, stale-menu recovery, timed Game View recovery, and locked-level rejection. Original-editor recovery with the new loader still requires its v2 report and menu inspection.
 - Built a Linux Development player from the isolated project and ran a temporary player-only probe. All six previews loaded through `LevelSelectionUI.LoadPreview` as768x576 textures, then the probe exited with code0. `UnityEditor` is excluded in this build, so it verifies actual packaged Resources rather than editor fallback. The probe/build harness and player are temporary files under `/tmp/sneakhouse-level-validation` and `/tmp/sneakhouse-preview-player`; they are not part of the source project. Logs: `/tmp/sneakhouse-preview-player-build.log` and `/tmp/sneakhouse-preview-player-runtime.log`.
+
+## Guard balance — 21 October 2026
+
+- Pure rules: 426 campaign and 55 score assertions pass (Unity 6000.6 Mono on Windows; Mono on Linux).
+- Runtime scripts compiled against UnityEngine reference assemblies; `CampaignValidation.cs` compiled against a minimal `UnityEditor` stub. This proves consistency, not behavior.
+- `CampaignValidation` now also checks the level tuning on every guard, that each mission uses its `PatrolPlans` beats (`beats=True` in the `CAMPAIGN PATROL` log line), and that home loops keep `PatrolClearance` from every pickup. This harness has **not yet been run** against the balance changes.
+- Patrol coordinates were chosen from NavMesh dumps of each fixed level seed. If a layout changes, `GuardEncounter` falls back to the authored room routes and the validation fails on `UsingBeats`.
+- Guards do not idle at peek waypoints, so each pickup keeps its safe windows.
+- Manual playtesting of all six levels is still required. Detection times, idle durations, and patrol windows are design estimates.

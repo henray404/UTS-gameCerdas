@@ -14,14 +14,14 @@ Pilih **Select Level** pada menu utama. Enam kartu level berjajar dari kiri ke k
 
 | Level | Map | Penjaga | Target wajib | Kaleng |
 |---:|---|---:|---|---:|
-| 1 — First Steps | Collector's House | 1 | Konsol | 5 |
+| 1 — First Steps | Collector's House | 1 | Konsol | 4 |
 | 2 — Office Job | Collector's House | 2 | Konsol, drive | 4 |
 | 3 — Full Collection | Collector's House | 3 | Konsol, drive, jam | 4 |
 | 4 — Library Detour | Library Villa | 3 | Konsol, drive, jam | 3 |
 | 5 — Across the Courtyard | Courtyard Estate | 4 | Konsol, drive, jam | 3 |
-| 6 — The Upstairs Job | Loft Villa | 4 | Konsol, drive, jam | 1 |
+| 6 — The Upstairs Job | Loft Villa | 4 | Konsol, drive, jam | 2 |
 
-Level awal memakai penjaga dengan jarak pandang pendek, sudut sempit, dan penyadaran lambat. Semakin tinggi level, jarak pandang, sudut pandang, kecepatan penyadaran, kecepatan pengejaran, durasi pencarian, dan jumlah penjaga meningkat bertahap. Pemain juga lebih sulit kehabisan stamina saat berlari.
+Level awal memakai penjaga dengan jarak pandang pendek, sudut sempit, penyadaran lambat, dan pendengaran lemah. Di level 1, pemain yang terlihat dari jarak 3 m masih punya sekitar 4 detik (sekitar 6,5 detik saat mengendap) sebelum ketahuan. Semakin tinggi level, jarak pandang, sudut pandang, kecepatan penyadaran, ketepatan pendengaran, jangkauan laporan antarpenjaga, kecepatan pengejaran, durasi pencarian, dan jumlah penjaga meningkat bertahap, sedangkan waktu istirahat penjaga makin singkat. Pemain juga lebih sulit kehabisan stamina saat berlari.
 
 ## Alur permainan
 
@@ -46,6 +46,10 @@ Setiap level menentukan bentuk rumah dan seed interior tetap. Mengulang misi mem
 Penjaga berpatroli, mengamati area pandang, dan mendengarkan suara. Dinding menghalangi pandangan serta meredam suara. Ketika menemukan petunjuk, penjaga memeriksa sumbernya; jika pemain terlihat, penjaga mengejar.
 
 Setiap misi memilih satu hingga empat karakter berbeda dari Bogo, Judy, Clawhauser, dan Spike. Jumlah penjaga mengikuti level. Luas interior bebas berjalan tetap diukur untuk informasi debug. Titik awal, arah rute, dan jeda patroli bervariasi. Zona patroli mengikuti bentuk rumah: ruang tamu, kantor/perpustakaan, ruang koleksi/galeri, serta penghubung pada estate. Ketika satu penjaga mendeteksi pemain, penjaga lain menerima laporan dan mencari di titik berbeda sekitar posisi terakhir yang diketahui. Laporan tidak memberi posisi pemain yang sudah berpindah tanpa terlihat.
+
+Setiap penjaga punya rute keliling yang menjaga jarak dari titik ambil target (3,5 m di level 1, 3 m di level 2–3, 2,5 m di level 4–6). Setiap dua atau tiga putaran, penjaga sekali melewati titik intip di dekat target lalu kembali ke rutenya, sehingga ada jendela aman untuk mengambil barang. Di pos jaga pada rute keliling, penjaga kadang berhenti dan melihat sekeliling. Selama istirahat, kerucut pandangnya lebih pendek dan sempit, dan penyadarannya lebih lambat. Penjaga tidak beristirahat di titik intip. Lama dan seringnya istirahat berkurang di level yang lebih tinggi.
+
+Bunyi kaleng selalu terdengar jelas dan tepat. Langkah kaki terdengar lebih dekat di level awal dan lokasinya hanya diperkirakan, sehingga penjaga memeriksa titik di sekitar pemain, bukan posisi persisnya. Di level awal, laporan penjaga hanya menjangkau rekan di dekatnya.
 
 Saat kehilangan jejak, penjaga menuju lokasi bukti lalu mencari sebelum kembali ke zona patrolinya. Waktu perjalanan mengikuti panjang jalur, termasuk naik-turun tangga; waktu pencarian dimulai setelah penjaga tiba. Dinding dan lantai menghalangi pandangan antar lantai. Bersembunyi tidak langsung menghapus ingatan penjaga.
 

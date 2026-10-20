@@ -6,7 +6,7 @@ namespace SneakHouse
     {
         [Range(1, 10)] public int startingCans = 3;
         [Min(.1f)] public float cooldown = .7f;
-        [Min(1)] public float hearingRadius = 7;
+        [Min(1)] public float hearingRadius = 10;
         public GameObject canPrefab;
         public int Remaining { get; private set; }
         public DroppedCan LastDrop { get; private set; }

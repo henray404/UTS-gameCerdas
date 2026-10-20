@@ -31,9 +31,9 @@ namespace SneakHouse
             distance += speed * Time.deltaTime;
             if (distance < strideDistance) return;
             distance %= strideDistance; StepCount++;
-            steps.volume = .65f * atmosphere.soundVolume * atmosphere.effectIntensity;
+            steps.volume = .45f * atmosphere.soundVolume * atmosphere.effectIntensity;
             steps.pitch = .92f + Mathf.Sin(StepCount * 1.7f) * .07f;
-            steps.PlayOneShot(steps.clip);
+            steps.PlayOneShot(FootstepSurface.ClipAt(guard.transform.position, StepCount, steps.clip));
         }
         private void OnDisable() { distance = 0; if (steps != null) steps.Stop(); }
     }

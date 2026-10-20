@@ -27,10 +27,12 @@ namespace SneakHouseEditor
             if (importer != null)
             {
                 AudioImporterSampleSettings settings = importer.defaultSampleSettings;
-                settings.compressionFormat = AudioCompressionFormat.PCM;
-                settings.loadType = AudioClipLoadType.DecompressOnLoad;
+                bool ambience = clip.length > 15;
+                settings.compressionFormat = ambience ? AudioCompressionFormat.Vorbis : AudioCompressionFormat.PCM;
+                settings.loadType = ambience ? AudioClipLoadType.Streaming : AudioClipLoadType.DecompressOnLoad;
+                settings.quality = .7f;
                 settings.sampleRateSetting = AudioSampleRateSetting.PreserveSampleRate;
-                settings.preloadAudioData = true;
+                settings.preloadAudioData = !ambience;
                 importer.defaultSampleSettings = settings; importer.forceToMono = true;
                 importer.SaveAndReimport();
             }
@@ -52,6 +54,24 @@ namespace SneakHouseEditor
             AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
             AudioClip heart = Clip("chase-heartbeat"), breath = Clip("chase-breath"),
                 drone = Clip("chase-drone"), sting = Clip("chase-sting"), step = Clip("chase-footstep");
+            AudioClip[] wood = new[] { Clip("Footsteps/wood-00"), Clip("Footsteps/wood-01"), Clip("Footsteps/wood-02") };
+            AudioClip[] grass = new[] { Clip("Footsteps/grass-00"), Clip("Footsteps/grass-01"), Clip("Footsteps/grass-02") };
+            RuntimeNavigation navigation = Object.FindFirstObjectByType<RuntimeNavigation>();
+            if (navigation != null)
+                foreach (string floor in new[] { "Courtyard ground", "Living floor", "Office floor", "Collection floor" })
+                {
+                    Transform ground = navigation.geometry.Find(floor);
+                    if (ground == null) continue;
+                    FootstepSurface surface = ground.GetComponent<FootstepSurface>();
+                    if (surface == null) surface = Undo.AddComponent<FootstepSurface>(ground.gameObject);
+                    Undo.RecordObject(surface, "Assign floor sounds");
+                    surface.clips = floor == "Courtyard ground" ? grass : wood; EditorUtility.SetDirty(surface);
+                }
+            FootstepAudio footsteps = game.player.GetComponent<FootstepAudio>();
+            if (footsteps == null) footsteps = Undo.AddComponent<FootstepAudio>(game.player.gameObject);
+            Undo.RecordObject(footsteps, "Assign player footsteps");
+            footsteps.steps = Source(game.player.transform, "AUDIO / Player steps", wood[0], false);
+            EditorUtility.SetDirty(footsteps);
             Shader shader = AssetDatabase.LoadAssetAtPath<Shader>(Root + "Shaders/ChaseDread.shader");
             if (shader == null) throw new System.IO.FileNotFoundException("Missing chase shader");
             string materialPath = Root + "Materials/ChaseDread.mat";

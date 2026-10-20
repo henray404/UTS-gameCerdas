@@ -80,7 +80,7 @@ namespace SneakHouse
 
             if (BeingChased && !previousChase && clock >= nextSting)
             {
-                if (sting != null && sting.clip != null) { sting.volume = soundVolume * .52f; sting.Play(); }
+                if (sting != null && sting.clip != null) { sting.volume = soundVolume * .38f; sting.Play(); }
                 accentSince = clock; nextSting = clock + 10;
             }
             previousChase = BeingChased;
@@ -98,9 +98,9 @@ namespace SneakHouse
         }
         private void UpdateAudio()
         {
-            Loop(heartbeat, Intensity * .62f, Mathf.Lerp(.95f, 1.9f, Intensity));
-            Loop(breathing, Intensity * .4f, Mathf.Lerp(.9f, 1.3f, Intensity));
-            Loop(drone, Intensity * .42f, .98f + Intensity * .025f);
+            Loop(heartbeat, Intensity * .42f, Mathf.Lerp(.9f, 1.3f, Intensity));
+            Loop(breathing, Intensity * .3f, Mathf.Lerp(.97f, 1.1f, Intensity));
+            Loop(drone, Intensity * .14f, 1);
         }
         private AudioSource[] Sources => new[] { heartbeat, breathing, drone, sting };
         private void PauseAudio(bool paused)

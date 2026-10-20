@@ -6,26 +6,38 @@ namespace SneakHouse
     public sealed class LevelSelectionUI
     {
         private const float CardWidth = 202, CardGap = 12, CardLeft = 84, CardTop = 224;
+        private const float PreviewRetrySeconds = 1;
         private readonly GameSession game;
         private readonly Texture2D[] previews = new Texture2D[CampaignLevels.Count];
         private readonly Texture2D[] symbols = new Texture2D[4];
         private int selectedLevel;
+        private float nextPreviewRefresh;
         private GUIStyle title, name, map, count, detail, hint, introduction, card, selectedCard, action, secondary;
 
         public LevelSelectionUI(GameSession session)
         {
             game = session; selectedLevel = game.Level.Number;
+            RefreshPreviews(true);
+            for (int i = 0; i < symbols.Length; i++) symbols[i] = CreateSymbol(i);
+        }
+
+        private void RefreshPreviews(bool reportMissing = false)
+        {
             for (int i = 0; i < previews.Length; i++)
             {
+                if (previews[i] != null) continue;
                 string path = "SneakHouseUI/Levels/level-" + (i + 1).ToString("00");
                 previews[i] = Resources.Load<Texture2D>(path);
-                if (previews[i] == null) Debug.LogWarning("Missing campaign map preview: " + path);
+                if (previews[i] != null) continue;
+                if (reportMissing) Debug.LogWarning("Missing campaign map preview; menu will retry: " + path);
             }
-            for (int i = 0; i < symbols.Length; i++) symbols[i] = CreateSymbol(i);
+            // Menus pause scaled time, but newly imported preview images must still be retried.
+            nextPreviewRefresh = Time.realtimeSinceStartup + PreviewRetrySeconds;
         }
 
         public void Open()
         {
+            RefreshPreviews();
             selectedLevel = game.Progress.HighestUnlocked;
             game.ShowLevelSelect();
         }
@@ -71,6 +83,7 @@ namespace SneakHouse
 
         public void Draw()
         {
+            if (Time.realtimeSinceStartup >= nextPreviewRefresh) RefreshPreviews();
             Styles(); HandleNavigation();
             LowPolyUI.Board(new Rect(48, 70, 1344, 770));
             LowPolyUI.Plank(new Rect(24, 40, 1392, 115));

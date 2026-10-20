@@ -90,6 +90,12 @@ namespace SneakHouse
                 guards[i].chaseSpeed = Level.ChaseSpeed;
                 guards[i].hearingSuspicion = Level.HearingSuspicion;
                 guards[i].loseSightSeconds = Level.LoseSightSeconds;
+                guards[i].idleMin = Level.IdleMin;
+                guards[i].idleMax = Level.IdleMax;
+                guards[i].idleChance = Level.IdleChance;
+                guards[i].hearingScale = Level.HearingScale;
+                guards[i].hearingError = Level.HearingError;
+                guards[i].alertRadius = Level.AlertRadius;
                 guards[i].gameObject.SetActive(i < activeGuardCount);
             }
             PlayerDistraction distraction = player.GetComponent<PlayerDistraction>();

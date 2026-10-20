@@ -1,0 +1,62 @@
+SNEAK HOUSE — AUDIO CREDITS
+
+Dark Long Hits — Marcelo Fernandez
+Source: https://opengameart.org/content/dark-long-hits
+License: Creative Commons Attribution 3.0 Unported (CC BY 3.0)
+https://creativecommons.org/licenses/by/3.0/
+Asset: SneakHouse/Audio/chase-sting.wav
+Changes: first 3.2 seconds excerpted; mono PCM conversion, gain adjustment,
+short fade-in and fade-out. No endorsement by the original creator is implied.
+
+Impact Sounds — Kenney
+Source: https://kenney.nl/assets/impact-sounds
+License: CC0 1.0 Universal
+https://creativecommons.org/publicdomain/zero/1.0/
+Assets: chase-footstep.wav, can-impact.wav, Footsteps/wood-00..02.wav,
+Footsteps/grass-00..02.wav
+Originals: footstep_wood_000..002.ogg, footstep_grass_000..002.ogg,
+impactMetal_light_000.ogg
+Changes: mono PCM conversion, gain adjustment, short boundary fades.
+
+Heartbeat sounds — bart
+Source: https://opengameart.org/content/heartbeat-sounds
+License: CC0 1.0 Universal
+https://creativecommons.org/publicdomain/zero/1.0/
+Original: heartbeat_fast_0.wav
+Asset: chase-heartbeat.wav
+Changes: mono PCM conversion, gain adjustment, short boundary fades.
+
+Breathing Tired — mikeask / Michael Vivaldini
+Source: https://opengameart.org/content/breathing-tired
+License: CC0 1.0 Universal
+https://creativecommons.org/publicdomain/zero/1.0/
+Original: breathing tired.wav
+Asset: chase-breath.wav
+Changes: mono PCM conversion, gain adjustment, boundary fades,
+60 ms crossfade for looping.
+
+Dark Cavern Ambient — Paul Wortmann
+Source: https://opengameart.org/content/dark-cavern-ambient
+License: CC0 1.0 Universal
+https://creativecommons.org/publicdomain/zero/1.0/
+Original: dark_cavern_ambient_002.ogg (loop version)
+Asset: chase-drone.wav
+Changes: mono PCM conversion, gain adjustment, short boundary fades.
+
+
+MUSIC / SOUNDTRACK
+
+Sneaky Snitch — Kevin MacLeod (incompetech.com)
+Licensed under Creative Commons: By Attribution 4.0 License
+https://creativecommons.org/licenses/by/4.0/
+Source: https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100772
+Asset: SneakHouse/Audio/Music/exploration.ogg
+Changes: loudness normalization, boundary fades, stereo OGG conversion.
+No endorsement by the original creator is implied.
+
+Pursuit / Vicegrip of Pursuit — Sudocolon
+Source: https://opengameart.org/content/pursuit
+License: CC0 1.0 Universal
+https://creativecommons.org/publicdomain/zero/1.0/
+Asset: SneakHouse/Audio/Music/pursuit.ogg
+Changes: loudness normalization, boundary fades, stereo OGG conversion.

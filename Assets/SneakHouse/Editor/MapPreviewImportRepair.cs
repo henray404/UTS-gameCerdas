@@ -12,14 +12,15 @@ namespace SneakHouseEditor
     public static class MapPreviewImportRepair
     {
         private const string Folder = "Assets/SneakHouse/Resources/SneakHouseUI/Levels";
-        private const string SessionKey = "SneakHouse.MapPreviewImportRepair.v1";
+        private const string SessionKey = "SneakHouse.MapPreviewImportRepair.v2";
         private static bool running;
         private static double captureAfter;
+        private static double captureDeadline;
 
         [Serializable] private sealed class Preview
         {
             public string path, guid, importer, mainAssetType;
-            public bool fileExists, assetDatabaseLoaded, resourcesLoaded;
+            public bool fileExists, assetDatabaseLoaded, resourcesLoaded, menuLoaded;
             public int width, height;
         }
         [Serializable] private sealed class Report
@@ -94,6 +95,7 @@ namespace SneakHouseEditor
                 string path = AssetPath(i);
                 Texture2D texture = Resources.Load<Texture2D>("SneakHouseUI/Levels/level-" + i.ToString("00"));
                 Texture2D direct = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+                Texture2D menu = LevelSelectionUI.LoadPreview(i);
                 AssetImporter importer = AssetImporter.GetAtPath(path);
                 Type mainType = AssetDatabase.GetMainAssetTypeAtPath(path);
                 result[i - 1] = new Preview
@@ -103,7 +105,8 @@ namespace SneakHouseEditor
                     mainAssetType = mainType == null ? "none" : mainType.FullName,
                     assetDatabaseLoaded = direct != null,
                     resourcesLoaded = texture != null,
-                    width = texture == null ? 0 : texture.width, height = texture == null ? 0 : texture.height
+                    menuLoaded = menu != null,
+                    width = menu == null ? 0 : menu.width, height = menu == null ? 0 : menu.height
                 };
             }
             return result;
@@ -114,20 +117,23 @@ namespace SneakHouseEditor
             try
             {
                 report.after = Inspect();
-                report.success = CountLoaded(report.after) == CampaignLevels.Count;
+                report.success = Array.TrueForAll(report.after, preview => preview.menuLoaded);
                 SaveReport(report);
                 foreach (Preview preview in report.after)
                     Debug.Log("MAP PREVIEW IMPORT: " + preview.path + " importer=" + preview.importer +
-                        " main=" + preview.mainAssetType + " resource=" + preview.resourcesLoaded);
+                        " main=" + preview.mainAssetType + " resource=" + preview.resourcesLoaded +
+                        " menu=" + preview.menuLoaded);
                 if (!report.success)
                 {
                     Debug.LogError("MAP PREVIEW REPAIR: images still unavailable. See Logs/MapPreviewImportReport.json.");
                     return;
                 }
-                Debug.Log("MAP PREVIEW REPAIR PASS: all " + CampaignLevels.Count + " previews load in the actual project.");
-                if (!Application.isBatchMode && EditorApplication.isPlaying)
+                Debug.Log("MAP PREVIEW REPAIR PASS: all " + CampaignLevels.Count + " menu previews load; Resources=" +
+                    CountLoaded(report.after) + "/" + CampaignLevels.Count + ".");
+                if (!Application.isBatchMode)
                 {
                     captureAfter = EditorApplication.timeSinceStartup + 1.5;
+                    captureDeadline = EditorApplication.timeSinceStartup + 180;
                     EditorApplication.update -= CaptureMenu;
                     EditorApplication.update += CaptureMenu;
                 }
@@ -139,10 +145,18 @@ namespace SneakHouseEditor
         private static void CaptureMenu()
         {
             if (EditorApplication.timeSinceStartup < captureAfter) return;
-            EditorApplication.update -= CaptureMenu;
+            if (EditorApplication.timeSinceStartup > captureDeadline)
+            {
+                EditorApplication.update -= CaptureMenu;
+                return;
+            }
+            if (!EditorApplication.isPlaying) return;
             GameSession game = GameSession.Instance;
             if (game != null && game.Phase == GameSession.ScreenState.LevelSelect)
+            {
+                EditorApplication.update -= CaptureMenu;
                 ScreenCapture.CaptureScreenshot("Logs/MapPreviewRepair.png");
+            }
         }
 
         private static int CountLoaded(Preview[] previews)

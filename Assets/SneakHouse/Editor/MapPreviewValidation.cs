@@ -103,6 +103,8 @@ namespace SneakHouseEditor
                 string path = "SneakHouseUI/Levels/level-" + (i + 1).ToString("00");
                 originals[i] = Resources.Load<Texture2D>(path);
                 CheckTexture(originals[i], i + 1, "Resources");
+                Check(LevelSelectionUI.LoadPreview(i + 1) == originals[i],
+                    "Menu loader retains valid Resources asset for level " + (i + 1));
                 Debug.Log("MAP PREVIEW RESOURCE level=" + (i + 1) + " path=" + path +
                     " size=" + originals[i].width + "x" + originals[i].height);
             }

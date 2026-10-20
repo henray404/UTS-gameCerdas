@@ -27,12 +27,28 @@ namespace SneakHouse
             {
                 if (previews[i] != null) continue;
                 string path = "SneakHouseUI/Levels/level-" + (i + 1).ToString("00");
-                previews[i] = Resources.Load<Texture2D>(path);
+                previews[i] = LoadPreview(i + 1);
                 if (previews[i] != null) continue;
                 if (reportMissing) Debug.LogWarning("Missing campaign map preview; menu will retry: " + path);
             }
             // Menus pause scaled time, but newly imported preview images must still be retried.
             nextPreviewRefresh = Time.realtimeSinceStartup + PreviewRetrySeconds;
+        }
+
+        // The original editor can import these PNGs but retain a broken Resources lookup.
+        // Player builds use Resources; the AssetDatabase recovery is editor-only.
+        public static Texture2D LoadPreview(int levelNumber)
+        {
+            if (levelNumber < 1 || levelNumber > CampaignLevels.Count)
+                throw new System.ArgumentOutOfRangeException(nameof(levelNumber));
+            string path = "SneakHouseUI/Levels/level-" + levelNumber.ToString("00");
+            Texture2D preview = Resources.Load<Texture2D>(path);
+#if UNITY_EDITOR
+            if (preview == null)
+                preview = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(
+                    "Assets/SneakHouse/Resources/" + path + ".png");
+#endif
+            return preview;
         }
 
         public void Open()

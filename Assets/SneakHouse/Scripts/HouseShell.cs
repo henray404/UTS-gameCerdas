@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
@@ -9,9 +8,6 @@ namespace SneakHouse
     public class HouseShell : MonoBehaviour
     {
         public HouseShellVariant[] variants;
-        public bool useFixedSeed;
-        public int fixedSeed = 104;
-        public float areaPerGuard = 60;
         public int CurrentSeed { get; private set; }
         public int VariantIndex { get; private set; }
         public HouseShellVariant Current { get; private set; }
@@ -26,12 +22,6 @@ namespace SneakHouse
         private Transform geometry;
         private Quaternion cameraRotation;
         private float cameraSize;
-        private static int? retainedSeed;
-        private static int previousVariant = -1;
-
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetSeed() { retainedSeed = null; previousVariant = -1; }
-        public static void NewContract() { retainedSeed = null; }
         private void Capture(Transform node)
         {
             originals.Add(new Original { node = node, position = node.position, rotation = node.rotation,
@@ -39,6 +29,7 @@ namespace SneakHouse
         }
         private void Awake()
         {
+            GetComponent<GameSession>().ApplyLevelConfiguration();
             geometry = GetComponent<RuntimeNavigation>().geometry;
             foreach (Transform child in geometry)
             {
@@ -55,13 +46,9 @@ namespace SneakHouse
                 for (int j = 0; j < routes[i].Length; j++) routes[i][j] = encounter.zones[i].route[j].position;
             }
             Camera view = Camera.main; cameraRotation = view.transform.rotation; cameraSize = view.orthographicSize;
-            CurrentSeed = useFixedSeed ? fixedSeed : retainedSeed ?? (Guid.NewGuid().GetHashCode() & int.MaxValue);
-            if (!useFixedSeed && !retainedSeed.HasValue)
-                while (IndexForSeed(CurrentSeed) == previousVariant) CurrentSeed = unchecked(CurrentSeed+1);
-            retainedSeed = CurrentSeed; previousVariant = IndexForSeed(CurrentSeed);
+            CurrentSeed = GameSession.SelectedLevel.LayoutSeed;
             Generate(CurrentSeed);
         }
-        public int IndexForSeed(int seed) => new System.Random(seed).Next(variants.Length);
         public void Generate(int seed)
         {
             if (Current != null) { Current.gameObject.SetActive(false); Destroy(Current.gameObject); }
@@ -70,7 +57,7 @@ namespace SneakHouse
                 original.node.SetPositionAndRotation(original.position,original.rotation);
                 original.node.localScale = original.scale; original.node.gameObject.SetActive(original.active);
             }
-            CurrentSeed = seed; VariantIndex = IndexForSeed(seed);
+            CurrentSeed = seed; VariantIndex = GameSession.SelectedLevel.ShellIndex;
             Current = Instantiate(variants[VariantIndex],geometry,false); Current.name = "HOUSE / " + Current.label;
             bool expanded = Current.officeWing;
             if (expanded)
@@ -139,8 +126,8 @@ namespace SneakHouse
                 }
             }
             UsableArea = area; GameSession game = GetComponent<GameSession>();
-            game.activeGuardCount = Mathf.Clamp(Mathf.CeilToInt(area/Mathf.Max(1,areaPerGuard)),3,Mathf.Min(game.guards.Length,GetComponent<GuardEncounter>().roster.Length));
-            game.targetTime = 240 + (Current.officeWing ? 60 : 0) + (Current.collectionWing ? 60 : 0) + (HasUpperFloor ? 90 : 0);
+            game.activeGuardCount = game.Level.Guards;
+            game.targetTime = game.Level.ReferenceSeconds;
             for (int i = 0; i < game.guards.Length; i++) game.guards[i].gameObject.SetActive(i < game.activeGuardCount);
         }
         private static List<Vector2> Clip(List<Vector2> input, int axis, float edge, bool above)
@@ -154,11 +141,6 @@ namespace SneakHouse
                 if (inside) output.Add(point); previous = point; previousInside = inside;
             }
             return output;
-        }
-        public void UseFallback()
-        {
-            int seed = 0; while (IndexForSeed(seed) != 0) seed++;
-            Generate(seed);
         }
     }
 }

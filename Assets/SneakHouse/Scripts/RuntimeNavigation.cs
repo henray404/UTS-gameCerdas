@@ -28,9 +28,14 @@ namespace SneakHouse
             if (interior != null && !interior.ValidatePaths())
             {
                 string reason = interior.ValidationMessage;
-                GetComponent<HouseShell>()?.UseFallback();
-                interior.UseFallback(reason); Rebuild(); interior.ValidatePaths();
-                Debug.LogWarning("Interior rejected; using authored furniture. " + reason,this);
+                // Keep the selected map. A smaller-house fallback would invalidate campaign difficulty.
+                int seed = GameSession.SelectedLevel.LayoutSeed;
+                for (int attempt = 1; attempt <= 32 && !interior.Validated; attempt++)
+                {
+                    if (!interior.Generate(seed + attempt)) continue;
+                    Rebuild(); interior.ValidatePaths();
+                }
+                if (!interior.Validated) Debug.LogError("Mission blocked: " + reason, this);
             }
             return interior == null || interior.Validated;
         }

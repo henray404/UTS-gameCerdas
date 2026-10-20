@@ -16,7 +16,21 @@ namespace SneakHouse
         [Min(1)] public float visionDistance = 9;
         [Range(30, 180)] public float fieldOfView = 120;
         [Range(0, 1)] public float hearingSuspicion = .35f;
+        [Min(.05f)] public float suspicionRate = .9f;
+        [Min(0)] public float suspicionDecay = .65f;
+        [Min(1)] public float chaseSpeed = 3.05f;
+        [Min(.1f)] public float loseSightSeconds = .75f;
         public float searchDuration = 7;
+        [Header("Level tuning")]
+        public float idleMin, idleMax, idleChance;
+        public float hearingScale = 1, hearingError, alertRadius = 999;
+        // Waypoints visited only every peekEvery laps of patrol; they sit closer to the objectives than the home loop.
+        public Transform[] peek;
+        [Min(0)] public int peekEvery;
+        public bool Idling { get; private set; }
+        // A resting guard sees a shorter, narrower cone and builds suspicion slowly.
+        public float EffectiveVision => Idling ? visionDistance * .75f : visionDistance;
+        public float EffectiveFieldOfView => Idling ? fieldOfView * .6f : fieldOfView;
         public Mode State { get; private set; } = Mode.Patrol;
         public bool CanSeePlayer { get; private set; }
         public float Suspicion { get; private set; }
@@ -27,7 +41,7 @@ namespace SneakHouse
         public string MemorySource { get; private set; } = "-";
         public NavMeshAgent Agent { get; private set; }
         public Vector3 Destination => destination;
-        private int waypoint, searchPoint;
+        private int waypoint, searchPoint, lap, peekIndex = -1;
         private float stateSince, dwellUntil, lastVisible = -100;
         private float travelBudget = 10, searchSince = -1;
         private Vector3 destination;
@@ -68,7 +82,7 @@ namespace SneakHouse
         {
             Vector3 direction = position + Vector3.up * 1.05f - (transform.position + Vector3.up * eyeHeight);
             Vector3 flat = new Vector3(direction.x, 0, direction.z);
-            if (flat.magnitude > visionDistance || Vector3.Angle(transform.forward, flat) > fieldOfView * .5f) return false;
+            if (flat.magnitude > EffectiveVision || Vector3.Angle(transform.forward, flat) > EffectiveFieldOfView * .5f) return false;
             return !Physics.Raycast(transform.position + Vector3.up * eyeHeight, direction.normalized, direction.magnitude, 1 << 8, QueryTriggerInteraction.Ignore);
         }
         public void Step(float delta, float now)
@@ -79,14 +93,17 @@ namespace SneakHouse
             {
                 Remember(player.transform.position, now, "Vision");
                 lastVisible = now;
-                Suspicion = Mathf.Min(1, Suspicion + delta * (player.Sneaking ? .85f : 1.35f));
+                float flatDistance = Vector3.Distance(new Vector3(transform.position.x, 0, transform.position.z),
+                    new Vector3(player.transform.position.x, 0, player.transform.position.z));
+                Suspicion = Mathf.Min(1, Suspicion + delta * CampaignLevel.SuspicionGain(
+                    suspicionRate * (Idling ? .6f : 1f), player.Sneaking, flatDistance, visionDistance));
                 if (Suspicion >= 1 && State != Mode.Chase)
                 {
                     SetMode(Mode.Chase, now);
                     GameSession.Instance.Broadcast(this, LastKnownPosition, now);
                 }
             }
-            else Suspicion = Mathf.Max(0, Suspicion - delta * .55f);
+            else Suspicion = Mathf.Max(0, Suspicion - delta * suspicionDecay);
             if (!player.IsHidden && Vector3.Distance(transform.position, player.transform.position) < .72f &&
                 !Physics.Linecast(transform.position + Vector3.up, player.transform.position + Vector3.up, 1 << 8, QueryTriggerInteraction.Ignore))
             { GameSession.Instance.End(false); return; }
@@ -95,7 +112,7 @@ namespace SneakHouse
                 case Mode.Patrol:
                     if (CanSeePlayer && Suspicion > .08f)
                     {
-                        Agent.isStopped = true; Face(player.transform.position, delta);
+                        Idling = false; Agent.isStopped = true; Face(player.transform.position, delta);
                     }
                     else
                     {
@@ -103,8 +120,8 @@ namespace SneakHouse
                         if (HasMemory && Suspicion > .15f && !CanSeePlayer) { SetMode(Mode.Investigate, now); break; }
                         if (Reached())
                         {
-                            if (dwellUntil == 0) dwellUntil = now + patrolPause;
-                            if (now >= dwellUntil) { waypoint = (waypoint + 1) % patrol.Length; dwellUntil = 0; Go(patrol[waypoint].position); }
+                            if (dwellUntil == 0) BeginDwell(now);
+                            if (now >= dwellUntil) { Idling = false; dwellUntil = 0; AdvanceWaypoint(); }
                         }
                     }
                     break;
@@ -122,7 +139,7 @@ namespace SneakHouse
                         // Prediction uses observed velocity only while the target is visible.
                         Go(LastKnownPosition + player.Velocity * .35f);
                     }
-                    else if (now - lastVisible > .40f) SetMode(Mode.Search, now);
+                    else if (now - lastVisible > loseSightSeconds) SetMode(Mode.Search, now);
                     break;
                 case Mode.Search:
                     if (searchSince >= 0 ? now-searchSince > searchDuration : now-stateSince > travelBudget)
@@ -146,14 +163,21 @@ namespace SneakHouse
                     break;
             }
             float speed = Agent.velocity.magnitude;
-            acting?.SetLocomotion(speed, State == Mode.Chase, State == Mode.Search ? "LookAround" : Suspicion > .1f ? "FaceActing" : "Idle");
+            acting?.SetLocomotion(speed, State == Mode.Chase, State == Mode.Search || Idling ? "LookAround" : Suspicion > .1f ? "FaceActing" : "Idle");
             if (cone != null) cone.SetAlert(Suspicion, State == Mode.Chase);
         }
         public void Hear(Vector3 point, float radius, string source)
         {
             if (GameSession.Instance == null || GameSession.Instance.Finished || CanSeePlayer) return;
+            // Thrown cans are loud and exact; footsteps are scaled by level and their source is only roughly located.
+            bool decoy = source == "Dropped can";
             float attenuation = Physics.Linecast(transform.position + Vector3.up, point + Vector3.up, 1 << 8, QueryTriggerInteraction.Ignore) ? .65f : 1;
-            if (Vector3.Distance(transform.position, point) > radius * attenuation) return;
+            if (Vector3.Distance(transform.position, point) > radius * (decoy ? 1f : hearingScale) * attenuation) return;
+            if (!decoy && hearingError > 0)
+            {
+                Vector2 jitter = Random.insideUnitCircle * hearingError;
+                point += new Vector3(jitter.x, 0, jitter.y);
+            }
             Remember(point, Time.time, source); Suspicion = Mathf.Max(hearingSuspicion, Suspicion); SetMode(Mode.Investigate, Time.time);
         }
         public void NoticeHidingEntry(HidingSpot spot)
@@ -185,6 +209,7 @@ namespace SneakHouse
         {
             if (sender == this || State == Mode.Chase || CanSeePlayer || Time.time - timestamp > searchDuration ||
                 (HasMemory && LastEvidenceTime > timestamp)) return;
+            if (Vector3.Distance(sender.transform.position, transform.position) > alertRadius) return;
             Remember(point, timestamp, "Shared alert");
             Suspicion = Mathf.Max(.3f, Suspicion);
             assistingSearch = true;
@@ -205,7 +230,8 @@ namespace SneakHouse
         private void SetMode(Mode mode, float now)
         {
             State = mode; stateSince = now; dwellUntil = 0; searchSince = -1; Agent.isStopped = false;
-            Agent.speed = mode == Mode.Chase ? 3.05f : mode == Mode.Patrol ? 1.20f : 1.7f;
+            Idling = false; peekIndex = -1;
+            Agent.speed = mode == Mode.Chase ? chaseSpeed : mode == Mode.Patrol ? 1.15f : 1.65f;
             if (mode == Mode.Patrol || mode == Mode.Return)
             {
                 if (mode == Mode.Return)
@@ -230,6 +256,26 @@ namespace SneakHouse
                 for (int i = 1; i < corners.Length; i++) distance += Vector3.Distance(corners[i-1],corners[i]);
                 travelBudget = Mathf.Clamp(distance/Mathf.Max(.1f,Agent.speed)+5,10,60);
             }
+        }
+        private void BeginDwell(float now)
+        {
+            Idling = peekIndex < 0 && idleMax > 0 && Random.value < idleChance;
+            dwellUntil = now + (Idling ? Random.Range(idleMin, idleMax) : patrolPause);
+        }
+        // Home loop; every peekEvery laps the guard also walks the peek waypoints once.
+        private void AdvanceWaypoint()
+        {
+            if (peekIndex >= 0)
+            {
+                peekIndex++;
+                Go(peekIndex < peek.Length ? peek[peekIndex].position : patrol[waypoint].position);
+                if (peekIndex >= peek.Length) peekIndex = -1;
+                return;
+            }
+            waypoint = (waypoint + 1) % patrol.Length;
+            if (waypoint == 0 && peekEvery > 0 && peek != null && peek.Length > 0 && ++lap % peekEvery == 0)
+            { peekIndex = 0; Go(peek[0].position); return; }
+            Go(patrol[waypoint].position);
         }
         private static Vector3 SearchOffset(int index)
         {

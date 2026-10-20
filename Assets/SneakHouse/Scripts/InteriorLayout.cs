@@ -18,8 +18,6 @@ namespace SneakHouse
         public GameObject authoredFurniture;
         public HidingSpot deskHiding;
         public Room[] rooms = new Room[0];
-        public bool useFixedSeed;
-        public int fixedSeed = 2401;
         public int CurrentSeed { get; private set; }
         public RoomLayoutVariant[] CurrentRooms { get; private set; } = new RoomLayoutVariant[0];
         public bool Validated { get; private set; }
@@ -29,12 +27,6 @@ namespace SneakHouse
         private Quaternion[] originalRotations;
         private Vector3 originalHideRoot, originalHideAnchor, originalHideApproach;
         private Quaternion originalHideRotation;
-        private static int? retainedSeed;
-        private static string previousChoices;
-
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetSeed() { retainedSeed = null; previousChoices = null; }
-        public static void NewContract() { retainedSeed = null; }
         private void Awake()
         {
             originalTargets = new Vector3[rooms.Length]; originalRotations = new Quaternion[rooms.Length];
@@ -42,11 +34,7 @@ namespace SneakHouse
             { originalTargets[i] = rooms[i].target.transform.position; originalRotations[i] = rooms[i].target.transform.rotation; }
             originalHideRoot = deskHiding.transform.position; originalHideRotation = deskHiding.transform.rotation;
             originalHideAnchor = deskHiding.anchor.position; originalHideApproach = deskHiding.Approach;
-            CurrentSeed = useFixedSeed ? fixedSeed : retainedSeed ?? (Guid.NewGuid().GetHashCode() & int.MaxValue);
-            if (!useFixedSeed && !retainedSeed.HasValue)
-                for (int attempt = 0; attempt < 32 && string.Join(",",ChoicesForSeed(CurrentSeed)) == previousChoices; attempt++) CurrentSeed = unchecked(CurrentSeed+1);
-            retainedSeed = CurrentSeed;
-            previousChoices = string.Join(",",ChoicesForSeed(CurrentSeed));
+            CurrentSeed = GameSession.SelectedLevel.LayoutSeed;
             if (!Generate(CurrentSeed)) UseFallback("Invalid room catalogue");
         }
         public int[] ChoicesForSeed(int seed)

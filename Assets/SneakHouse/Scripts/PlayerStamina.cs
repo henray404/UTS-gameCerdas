@@ -5,10 +5,10 @@ namespace SneakHouse
     [DisallowMultipleComponent]
     public class PlayerStamina : MonoBehaviour
     {
-        [Min(1)] public float capacity = 100;
-        [Min(0)] public float sprintDrain = 20;
-        [Min(0)] public float recoveryRate = 18;
-        [Min(0)] public float recoveryDelay = 1.25f;
+        [Min(1)] public float capacity = 120;
+        [Min(0)] public float sprintDrain = 18;
+        [Min(0)] public float recoveryRate = 22;
+        [Min(0)] public float recoveryDelay = 1;
         [Range(.05f, 1)] public float resumeThreshold = .3f;
         public float Current { get; private set; }
         public bool Exhausted { get; private set; }

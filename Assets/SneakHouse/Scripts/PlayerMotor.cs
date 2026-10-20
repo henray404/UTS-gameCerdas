@@ -5,10 +5,10 @@ namespace SneakHouse
     [RequireComponent(typeof(CharacterController))]
     public class PlayerMotor : MonoBehaviour
     {
-        public float walkSpeed = 2.5f, runSpeed = 4.0f, sneakSpeed = 1.35f;
+        public float walkSpeed = 2.6f, runSpeed = 4.2f, sneakSpeed = 1.4f;
         [Header("Footstep hearing")]
-        [Min(0)] public float walkingNoiseRadius = 3.5f;
-        [Min(0)] public float runningNoiseRadius = 7;
+        [Min(0)] public float walkingNoiseRadius = 3.2f;
+        [Min(0)] public float runningNoiseRadius = 6;
         public Transform visual;
         public ActorAnimation acting;
         public Vector3 Velocity { get; private set; }
@@ -87,13 +87,13 @@ namespace SneakHouse
         }
         public void RefreshLoot()
         {
-            NearestLoot = null; float best = 1.35f * 1.35f;
+            NearestLoot = null; float best = 1.55f * 1.55f;
             if(IsHidden)return;
             foreach (LootTarget loot in GameSession.Instance.targets)
             {
-                if (loot.Collected) continue;
+                if (!GameSession.Instance.IsRequiredTarget(loot) || loot.Collected) continue;
                 Vector3 flat = loot.transform.position - transform.position; flat.y = 0;
-                if (Mathf.Abs(loot.transform.position.y-transform.position.y) > 1.6f) continue;
+                if (Mathf.Abs(loot.transform.position.y-transform.position.y) > 1.8f) continue;
                 if (flat.sqrMagnitude >= best) continue;
                 // The same walls that block vision also block reaching through partitions.
                 if (Physics.Linecast(transform.position + Vector3.up * 1.1f, loot.transform.position + Vector3.up * .12f, 1 << 8, QueryTriggerInteraction.Ignore)) continue;

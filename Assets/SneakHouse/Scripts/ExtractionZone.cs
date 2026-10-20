@@ -14,7 +14,7 @@ namespace SneakHouse
             Vector3 offset = position - transform.position; offset.y = 0;
             if (Mathf.Abs(position.y-transform.position.y) > 1) return false;
             if (game.Phase != GameSession.ScreenState.Playing || offset.sqrMagnitude > radius * radius) return false;
-            if (game.Collected == game.targets.Length) { game.End(true); return true; }
+            if (game.Collected == game.RequiredTargetCount) { game.End(true); return game.Won; }
             return false;
         }
     }

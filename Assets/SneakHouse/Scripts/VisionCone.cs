@@ -20,7 +20,7 @@ namespace SneakHouse
         }
         public void SetAlert(float suspicion, bool chase)
         {
-            if (material != null) material.color = chase ? new Color(.8f, .22f, .10f, .19f) : Color.Lerp(new Color(.7f, .65f, .35f, .12f), new Color(.9f, .6f, .12f, .22f), suspicion);
+            if (material != null) material.color = chase ? new Color(.8f, .22f, .10f, .22f) : Color.Lerp(new Color(.7f, .65f, .35f, .16f), new Color(.9f, .6f, .12f, .26f), suspicion);
         }
         private void LateUpdate()
         {

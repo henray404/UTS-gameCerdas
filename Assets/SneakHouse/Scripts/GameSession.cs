@@ -51,7 +51,7 @@ namespace SneakHouse
         private static bool reopenBriefing;
         private static bool reopenLevels;
         private float messageUntil;
-        private GUIStyle title, text, small, button, secondaryButton;
+        private GUIStyle title, text, small, button, secondaryButton, marker;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
@@ -81,6 +81,10 @@ namespace SneakHouse
                 guards[i].visionDistance = Level.VisionDistance;
                 guards[i].fieldOfView = Level.FieldOfView;
                 guards[i].searchDuration = Level.SearchSeconds;
+                guards[i].suspicionRate = Level.SuspicionRate;
+                guards[i].chaseSpeed = Level.ChaseSpeed;
+                guards[i].hearingSuspicion = Level.HearingSuspicion;
+                guards[i].loseSightSeconds = Level.LoseSightSeconds;
                 guards[i].gameObject.SetActive(i < activeGuardCount);
             }
             PlayerDistraction distraction = player.GetComponent<PlayerDistraction>();
@@ -211,6 +215,39 @@ namespace SneakHouse
             if (Instance == this) { Instance = null; Time.timeScale = 1; }
         }
 
+        private void DrawTargetMarkers(float w, float h, float scale)
+        {
+            Camera view = Camera.main;
+            if (view == null) return;
+            for (int i = 0; i < targets.Length; i++)
+            {
+                LootTarget target = targets[i];
+                if (target == null || target.Collected || !target.gameObject.activeInHierarchy || !IsRequiredTarget(target)) continue;
+                Vector3 point = view.WorldToScreenPoint(target.transform.position + Vector3.up * .72f);
+                bool behind = point.z <= 0;
+                float x = point.x / scale, y = (Screen.height - point.y) / scale;
+                if (behind) { x = w - x; y = h - y; }
+                int distance = Mathf.RoundToInt(Vector3.Distance(player.transform.position, target.transform.position));
+                string label = target.Label + "  " + distance + "m";
+                const float halfWidth = 88, halfHeight = 15;
+                bool visible = !behind && x >= halfWidth && x <= w - halfWidth &&
+                    y >= halfHeight + 120 && y <= h - halfHeight - 86;
+                Rect badge;
+                if (visible) badge = new Rect(x - halfWidth, y - halfHeight, halfWidth * 2, halfHeight * 2);
+                else
+                {
+                    Vector2 direction = new Vector2(x, y) - new Vector2(w * .5f, h * .5f);
+                    if (direction.sqrMagnitude < .001f) direction = Vector2.up;
+                    float reach = Mathf.Min((w * .5f - 112) / Mathf.Max(.001f, Mathf.Abs(direction.x)),
+                        (h * .5f - 112) / Mathf.Max(.001f, Mathf.Abs(direction.y)));
+                    Vector2 edge = new Vector2(w * .5f, h * .5f) + direction * reach;
+                    badge = new Rect(edge.x - halfWidth, edge.y - halfHeight, halfWidth * 2, halfHeight * 2);
+                }
+                Rect(badge, new Color(.24f, .20f, .13f, .78f));
+                GUI.Label(badge, label, marker);
+            }
+        }
+
         private void EnsureStyles()
         {
             if (text != null) return;
@@ -221,6 +258,9 @@ namespace SneakHouse
             title = new GUIStyle(text) { font = titleFont, fontSize = 37 };
             button = LowPolyUI.ButtonStyle(bodyFont, 23, true);
             secondaryButton = LowPolyUI.ButtonStyle(bodyFont, 23, false);
+            marker = new GUIStyle(small) { fontSize = 16, alignment = TextAnchor.MiddleCenter };
+            foreach (GUIStyleState state in new[] { marker.normal, marker.hover, marker.active, marker.focused })
+                state.textColor = LowPolyUI.Cream;
         }
         private static void Rect(Rect r, Color colour)
         {
@@ -287,6 +327,8 @@ namespace SneakHouse
                 bool firstPerson=player.View!=null && player.View.FirstPersonControls;
                 if(firstPerson || p.z>0)GUI.Label(firstPerson?new Rect(w/2-150,h/2+38,360,40):new Rect(p.x / scale - 115, (Screen.height - p.y) / scale - 45, 260, 60), "[E] " + player.NearestLoot.Label, small);
             }
+            if (Phase == ScreenState.Playing && !Finished && !Paused && player != null && !player.IsHidden)
+                DrawTargetMarkers(w, h, scale);
             if (DebugMode)
             {
                 InteriorLayout interior = GetComponent<InteriorLayout>();

@@ -16,6 +16,10 @@ namespace SneakHouse
         [Min(1)] public float visionDistance = 9;
         [Range(30, 180)] public float fieldOfView = 120;
         [Range(0, 1)] public float hearingSuspicion = .35f;
+        [Min(.05f)] public float suspicionRate = .9f;
+        [Min(0)] public float suspicionDecay = .65f;
+        [Min(1)] public float chaseSpeed = 3.05f;
+        [Min(.1f)] public float loseSightSeconds = .75f;
         public float searchDuration = 7;
         public Mode State { get; private set; } = Mode.Patrol;
         public bool CanSeePlayer { get; private set; }
@@ -79,14 +83,18 @@ namespace SneakHouse
             {
                 Remember(player.transform.position, now, "Vision");
                 lastVisible = now;
-                Suspicion = Mathf.Min(1, Suspicion + delta * (player.Sneaking ? .85f : 1.35f));
+                // Distant silhouettes fill the meter more slowly than someone in the guard's face.
+                float flatDistance = Vector3.Distance(new Vector3(transform.position.x, 0, transform.position.z),
+                    new Vector3(player.transform.position.x, 0, player.transform.position.z));
+                float proximity = Mathf.Lerp(1.15f, .55f, Mathf.Clamp01(flatDistance / Mathf.Max(1f, visionDistance)));
+                Suspicion = Mathf.Min(1, Suspicion + delta * suspicionRate * (player.Sneaking ? .62f : 1f) * proximity);
                 if (Suspicion >= 1 && State != Mode.Chase)
                 {
                     SetMode(Mode.Chase, now);
                     GameSession.Instance.Broadcast(this, LastKnownPosition, now);
                 }
             }
-            else Suspicion = Mathf.Max(0, Suspicion - delta * .55f);
+            else Suspicion = Mathf.Max(0, Suspicion - delta * suspicionDecay);
             if (!player.IsHidden && Vector3.Distance(transform.position, player.transform.position) < .72f &&
                 !Physics.Linecast(transform.position + Vector3.up, player.transform.position + Vector3.up, 1 << 8, QueryTriggerInteraction.Ignore))
             { GameSession.Instance.End(false); return; }
@@ -122,7 +130,7 @@ namespace SneakHouse
                         // Prediction uses observed velocity only while the target is visible.
                         Go(LastKnownPosition + player.Velocity * .35f);
                     }
-                    else if (now - lastVisible > .40f) SetMode(Mode.Search, now);
+                    else if (now - lastVisible > loseSightSeconds) SetMode(Mode.Search, now);
                     break;
                 case Mode.Search:
                     if (searchSince >= 0 ? now-searchSince > searchDuration : now-stateSince > travelBudget)
@@ -205,7 +213,7 @@ namespace SneakHouse
         private void SetMode(Mode mode, float now)
         {
             State = mode; stateSince = now; dwellUntil = 0; searchSince = -1; Agent.isStopped = false;
-            Agent.speed = mode == Mode.Chase ? 3.05f : mode == Mode.Patrol ? 1.20f : 1.7f;
+            Agent.speed = mode == Mode.Chase ? chaseSpeed : mode == Mode.Patrol ? 1.15f : 1.65f;
             if (mode == Mode.Patrol || mode == Mode.Return)
             {
                 if (mode == Mode.Return)

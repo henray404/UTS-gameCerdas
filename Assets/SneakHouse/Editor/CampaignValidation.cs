@@ -178,7 +178,11 @@ namespace SneakHouseEditor
                 if (guard.gameObject.activeInHierarchy) activeGuards++;
                 Check(Mathf.Approximately(guard.visionDistance, level.VisionDistance) &&
                     Mathf.Approximately(guard.fieldOfView, level.FieldOfView) &&
-                    Mathf.Approximately(guard.searchDuration, level.SearchSeconds), "Guard senses match catalogue " + number);
+                    Mathf.Approximately(guard.searchDuration, level.SearchSeconds) &&
+                    Mathf.Approximately(guard.suspicionRate, level.SuspicionRate) &&
+                    Mathf.Approximately(guard.chaseSpeed, level.ChaseSpeed) &&
+                    Mathf.Approximately(guard.hearingSuspicion, level.HearingSuspicion) &&
+                    Mathf.Approximately(guard.loseSightSeconds, level.LoseSightSeconds), "Guard senses match catalogue " + number);
             }
             foreach (LootTarget target in game.targets)
             {

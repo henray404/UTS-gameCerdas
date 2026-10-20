@@ -14,14 +14,14 @@ Pilih **Select Level** pada menu utama. Papan misi menampilkan status **Availabl
 
 | Level | Map | Penjaga | Target wajib | Kaleng |
 |---:|---|---:|---|---:|
-| 1 — First Steps | Collector's House | 1 | Konsol | 4 |
-| 2 — Office Job | Collector's House | 2 | Konsol, drive | 3 |
-| 3 — Full Collection | Collector's House | 3 | Konsol, drive, jam | 3 |
+| 1 — First Steps | Collector's House | 1 | Konsol | 5 |
+| 2 — Office Job | Collector's House | 2 | Konsol, drive | 4 |
+| 3 — Full Collection | Collector's House | 3 | Konsol, drive, jam | 4 |
 | 4 — Library Detour | Library Villa | 3 | Konsol, drive, jam | 3 |
-| 5 — Across the Courtyard | Courtyard Estate | 4 | Konsol, drive, jam | 2 |
+| 5 — Across the Courtyard | Courtyard Estate | 4 | Konsol, drive, jam | 3 |
 | 6 — The Upstairs Job | Loft Villa | 4 | Konsol, drive, jam | 1 |
 
-Jarak dan sudut pandang serta durasi pencarian penjaga meningkat bertahap. Kecepatan gerak penjaga tetap. 
+Level awal memakai penjaga dengan jarak pandang pendek, sudut sempit, dan penyadaran lambat. Semakin tinggi level, jarak pandang, sudut pandang, kecepatan penyadaran, kecepatan pengejaran, durasi pencarian, dan jumlah penjaga meningkat bertahap. Pemain juga lebih sulit kehabisan stamina saat berlari.
 
 ## Alur permainan
 
@@ -33,6 +33,7 @@ Setiap level menentukan bentuk rumah dan seed interior tetap. Mengulang misi mem
 
 ## Mekanik utama
 
+- **Penanda target:** setiap barang wajib yang belum diambil memiliki garis luar emas, cincin berdenyut, lampu sorot kecil, dan penanda berlian yang melayang. Label nama serta jarak juga tampil di layar, termasuk panah tepi layar saat barang berada di luar pandangan.
 - **Mengendap:** bergerak lebih pelan tanpa mengeluarkan suara langkah. Berlari menghasilkan suara lebih besar dan dapat menarik perhatian penjaga.
 - **Distraksi:** gunakan persediaan kaleng sesuai level untuk memancing penjaga memeriksa lokasi bunyi benturan. Kaleng terpisah dari barang target misi.
 - **Bersembunyi:** manfaatkan semak, tenda, atau kolong meja. Saat bersembunyi, pemain tidak dapat bergerak, mengambil target, atau menjatuhkan kaleng.

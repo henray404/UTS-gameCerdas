@@ -40,7 +40,7 @@ namespace SneakHouseEditor
                 if (EditorApplication.isPlayingOrWillChangePlaymode)
                     throw new InvalidOperationException("Start validation from Edit Mode.");
                 PlayerPrefs.DeleteKey(GameSession.ProgressKey);
-                for (int i = 1; i <= CampaignLevels.Count; i++) PlayerPrefs.DeleteKey(ScoreKey(i));
+                ScoreStore.Delete();
                 PlayerPrefs.Save();
                 SessionState.SetBool(Prefix + "active", true);
                 SessionState.SetInt(Prefix + "checks", 0);
@@ -64,7 +64,6 @@ namespace SneakHouseEditor
         }
 
         private static bool Active => SessionState.GetBool(Prefix + "active", false);
-        private static string ScoreKey(int level) => "SneakHouse.Score.Campaign.v1.Level." + level;
 
         private static void Update()
         {
@@ -107,7 +106,7 @@ namespace SneakHouseEditor
                     game.End(false);
                     Check(game.Finished && !game.Won, "Failure reaches results");
                     Check(game.Progress.HighestCompleted == 0 && !game.Progress.IsUnlocked(2), "Loss keeps next locked");
-                    Check(game.BestScore == 0 && PlayerPrefs.GetInt(ScoreKey(1), 0) == 0, "Loss awards no best score");
+                    Check(game.BestScore == 0 && game.BestTime == 0 && ScoreStore.Load().Find(1) == null, "Loss awards no record");
                     SetStep(2); game.Restart();
                     break;
                 case 2:
@@ -122,6 +121,7 @@ namespace SneakHouseEditor
                     Check(game.BestScore == SavedScore(1), "Replay reload retains own score");
                     Begin(game); CollectAndExtract(game);
                     Check(game.Progress.HighestCompleted == 1 && !game.NewlyUnlocked, "Replay cannot advance completion");
+                    Check(ScoreStore.Load().Level(1).scores.Count == 2, "Replay win joins level leaderboard");
                     SessionState.SetInt(Prefix + "score1", game.BestScore);
                     SessionState.SetInt(Prefix + "next", 2);
                     SetStep(4); game.ShowLevelSelect();
@@ -255,6 +255,9 @@ namespace SneakHouseEditor
             Check(game.ResultScore == 10000 - 500 * (number - 1) && game.BestScore == game.ResultScore,
                 "Distinct per-level win score stored " + number);
             SessionState.SetInt(Prefix + "score" + number, game.BestScore);
+            LevelRecord saved = ScoreStore.Load().Find(number);
+            Check(game.BestTime > 0 && saved != null && Mathf.Approximately(saved.bestTime, game.BestTime) &&
+                saved.times.Count >= 1, "Speed record stored " + number);
             Check(PlayerPrefs.GetInt(GameSession.ProgressKey, -1) == number, "Completion persisted " + number);
             VerifySavedScores(number);
             if (number + 2 <= CampaignLevels.Count)
@@ -264,8 +267,9 @@ namespace SneakHouseEditor
         private static int SavedScore(int number) => SessionState.GetInt(Prefix + "score" + number, -1);
         private static void VerifySavedScores(int completed)
         {
+            ScoreProfile saved = ScoreStore.Load();
             for (int i = 1; i <= CampaignLevels.Count; i++)
-                Check(PlayerPrefs.GetInt(ScoreKey(i), 0) == (i <= completed ? SavedScore(i) : 0), "Independent score key " + i);
+                Check(saved.BestScore(i) == (i <= completed ? SavedScore(i) : 0), "Independent level record " + i);
         }
 
         private static void SetStep(int step)

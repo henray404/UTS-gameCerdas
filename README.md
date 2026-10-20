@@ -25,7 +25,7 @@ Level awal memakai penjaga dengan jarak pandang pendek, sudut sempit, dan penyad
 
 ## Alur permainan
 
-Menu utama → pilih level terbuka → briefing misi → menyusup dan mengambil target → keluar dari rumah → hasil dan skor → level berikutnya atau replay.
+Menu utama (Continue / Select Level / Leaderboard) → pilih level terbuka → briefing misi → menyusup dan mengambil target → keluar dari rumah → hasil dan skor → level berikutnya atau replay.
 
 Pemain dapat menjeda permainan, mengulang misi, atau kembali ke menu utama. Mengulang misi mempertahankan rumah dan posisi target, mengembalikan perlengkapan, lalu mengacak susunan penjaga serta patroli.
 
@@ -64,9 +64,15 @@ Saat kehilangan jejak, penjaga menuju lokasi bukti lalu mencari sebelum kembali 
 | R | Mengulang misi |
 | F1 | Menampilkan informasi perilaku penjaga |
 
-## Skor
+## Skor, leaderboard, dan speedrun
 
-Kemenangan memberikan 6000 poin objektif, bonus stealth hingga 2500, dan bonus waktu hingga 1500. Semakin sedikit laporan penjaga dan semakin cepat misi selesai, semakin besar bonus yang diperoleh. Melewati waktu acuan menghilangkan bonus waktu tetapi tidak menggagalkan misi. Waktu acuan mengikuti jumlah target, penjaga, topologi map, dan lantai. Rekor terbaik disimpan lokal dan dipisahkan per level.
+Kemenangan memberikan 6000 poin objektif, bonus stealth hingga 2500 (berkurang 500 per laporan penjaga), dan bonus waktu hingga 1500. Bonus waktu menurun linear sampai waktu acuan level; melewati waktu acuan menghilangkan bonus waktu tetapi tidak menggagalkan misi. Skor maksimum 10.000. Hanya kemenangan yang masuk peringkat.
+
+Selain skor, setiap kemenangan mencatat **waktu tempuh** seperti speedrun: semakin cepat semakin baik. Layar hasil menampilkan rincian Objective / Stealth / Time, skor terbaik, waktu tercepat, serta penanda **NEW BEST TIME** saat rekor waktu pecah.
+
+Menu utama kini menampilkan papan **Best Records** (skor terbaik dan waktu tercepat tiap level, total skor, dan total speedrun). Tombol **Leaderboard** membuka **Hall of Records** dengan tab **SCORE** dan **SPEEDRUN**, enam level, serta lima catatan teratas per level (skor, waktu, jumlah alert, tanggal). Seri skor dipecahkan oleh waktu lebih cepat; seri waktu dipecahkan oleh skor lebih tinggi. Total speedrun hanya menjumlahkan level yang sudah punya waktu, dengan keterangan jumlah level yang tercatat.
+
+Semua rekor disimpan **lokal** di perangkat (`PlayerPrefs`, kunci `SneakHouse.Scores.v2`) untuk profil lokal. Tidak ada server online maupun perlindungan anti-cheat. Rekor lama per level (`SneakHouse.Score.Campaign.v1.Level.N`) dimigrasikan otomatis bila lebih tinggi; rekor lama tidak memiliki waktu sehingga hanya tampil di papan skor sebagai `imported`.
 
 ## Suasana
 

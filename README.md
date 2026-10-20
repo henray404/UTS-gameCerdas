@@ -10,7 +10,7 @@ Tersedia enam level dengan empat bentuk rumah: rumah kolektor, vila berbentuk L,
 
 ## Level dan progres
 
-Pilih **Select Level** pada menu utama. Papan misi menampilkan status **Available**, **Locked**, dan **Complete**. Profil baru hanya membuka level 1. Menang level sebelumnya membuka level berikutnya. Progres dan rekor tiap level disimpan lokal, sedangkan level selesai tetap bisa dimainkan ulang.
+Pilih **Select Level** pada menu utama. Enam kartu level berjajar dari kiri ke kanan, masing-masing menampilkan gambar map asli dan jumlah penjaga. Ikon segitiga menandai level terbuka, gembok menandai level terkunci, dan centang menandai level selesai. Klik kartu atau gunakan panah kiri/kanan untuk melihat detail. Profil baru hanya membuka level 1. Menang level sebelumnya membuka level berikutnya. Progres dan rekor tiap level disimpan lokal, sedangkan level selesai tetap bisa dimainkan ulang. [Lihat tampilan menu](Tests/screenshots/level-cards.png).
 
 | Level | Map | Penjaga | Target wajib | Kaleng |
 |---:|---|---:|---|---:|

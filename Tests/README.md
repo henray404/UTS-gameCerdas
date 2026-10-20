@@ -40,3 +40,24 @@ On Windows, use an isolated folder under `%TEMP%` and update the path check **in
 - Unity 6000.6 emitted an editor-only `UnityEditor.Search.SearchDatabase` / `SearchInit` startup exception. The runner explicitly excludes that stack from game failures, logs its exclusion, and fails on other Play Mode errors. Existing API deprecation warnings were retained.
 
 Measured walkable areas and complete balancing calculations are in [the level report](../LAPORAN-SISTEM-LEVEL.md).
+
+## Level-card menu — 21 October 2026
+
+- Unity6000.6.0f1 on Linux, isolated copy; current working-tree editor upgrade preserved.
+- 123 pure-rule assertions and434 Play Mode assertions passed after the UI replacement.
+- Six actual seeded map screenshots rendered at768x576 and loaded as runtime Resources. Upper floor/stairs visible in Loft preview. No image-generation service or new package used.
+- Inspected GameView at1440x900 and960x540: all six cards fit, map images and guard counts visible, long mission names wrap, lock icons replace status words, and locked Play remains disabled.
+- Fresh profile: [level-cards.png](screenshots/level-cards.png). Selected locked level: [level-cards-locked.png](screenshots/level-cards-locked.png). Earlier screenshots retained.
+- The visual capture used private menu selection solely to inspect locked-card presentation; its launch was also rejected through GameSession.StartLevel. Full campaign regression checks the underlying unlock/save rules. Manual mouse/controller testing and human balance testing remain pending.
+
+To regenerate previews, prepare the isolated copy described above, then run Unity with graphics enabled:
+
+```bash
+/path/to/Editor/Unity -batchmode -force-glcore \
+  -projectPath /tmp/sneakhouse-level-validation \
+  -executeMethod SneakHouseEditor.LevelMapPreviewBuilder.Run \
+  -levelPreviewOutput /absolute/project/Assets/SneakHouse/Resources/SneakHouseUI/Levels \
+  -logFile /tmp/sneakhouse-preview.log
+```
+
+The builder requires the isolated project identity, touches only that identity's progress, renders six fixed filenames under the explicit output directory, and exits itself. Existing texture import metadata is retained when regenerating PNGs.

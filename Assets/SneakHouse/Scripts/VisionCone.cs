@@ -32,9 +32,10 @@ namespace SneakHouse
             vertices[0] = transform.InverseTransformPoint(new Vector3(origin.x, floor, origin.z));
             for (int i = 0; i <= segments; i++)
             {
-                float angle = -guard.fieldOfView / 2 + guard.fieldOfView * i / segments;
+                float fov = guard.EffectiveFieldOfView, reach = guard.EffectiveVision;
+                float angle = -fov / 2 + fov * i / segments;
                 Vector3 direction = Quaternion.AngleAxis(angle, Vector3.up) * transform.forward;
-                float distance = Physics.Raycast(origin, direction, out RaycastHit hit, guard.visionDistance, 1 << 8, QueryTriggerInteraction.Ignore) ? hit.distance : guard.visionDistance;
+                float distance = Physics.Raycast(origin, direction, out RaycastHit hit, reach, 1 << 8, QueryTriggerInteraction.Ignore) ? hit.distance : reach;
                 Vector3 end = origin + direction * distance; end.y = floor;
                 vertices[i + 1] = transform.InverseTransformPoint(end);
                 if (i < segments) { triangles[i * 3] = 0; triangles[i * 3 + 1] = i + 2; triangles[i * 3 + 2] = i + 1; }

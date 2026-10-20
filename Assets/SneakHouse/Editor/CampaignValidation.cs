@@ -182,7 +182,12 @@ namespace SneakHouseEditor
                     Mathf.Approximately(guard.suspicionRate, level.SuspicionRate) &&
                     Mathf.Approximately(guard.chaseSpeed, level.ChaseSpeed) &&
                     Mathf.Approximately(guard.hearingSuspicion, level.HearingSuspicion) &&
-                    Mathf.Approximately(guard.loseSightSeconds, level.LoseSightSeconds), "Guard senses match catalogue " + number);
+                    Mathf.Approximately(guard.loseSightSeconds, level.LoseSightSeconds) &&
+                    Mathf.Approximately(guard.idleMin, level.IdleMin) && Mathf.Approximately(guard.idleMax, level.IdleMax) &&
+                    Mathf.Approximately(guard.idleChance, level.IdleChance) &&
+                    Mathf.Approximately(guard.hearingScale, level.HearingScale) &&
+                    Mathf.Approximately(guard.hearingError, level.HearingError) &&
+                    Mathf.Approximately(guard.alertRadius, level.AlertRadius), "Guard senses match catalogue " + number);
             }
             foreach (LootTarget target in game.targets)
             {
@@ -190,6 +195,29 @@ namespace SneakHouseEditor
                 Check(target.gameObject.activeSelf == game.IsRequiredTarget(target), "Exact required target activation " + number);
             }
             Check(activeGuards == level.Guards && activeTargets == level.TargetCount, "Active roster/objective count " + number);
+            GuardEncounter encounter = game.GetComponent<GuardEncounter>();
+            Check(encounter.UsingBeats, "Level patrol beats active " + number + ": " + encounter.ValidationMessage);
+            float clearance = float.MaxValue;
+            for (int g = 0; g < game.ActiveGuards; g++)
+            {
+                GuardBrain guard = game.guards[g];
+                Check(guard.patrol.Length >= 4 && guard.peek != null && guard.peek.Length >= 1 && guard.peekEvery >= 2,
+                    "Guard " + g + " has a home loop and peek trips " + number);
+                foreach (int index in level.TargetIndices)
+                {
+                    int room = Array.FindIndex(interior.rooms, candidate => candidate.target == game.targets[index]);
+                    Vector3 approach = interior.Approach(room);
+                    foreach (Transform node in guard.patrol)
+                    {
+                        if (Mathf.Abs(node.position.y - approach.y) >= 1.5f) continue;
+                        float distance = Vector3.ProjectOnPlane(node.position - approach, Vector3.up).magnitude;
+                        clearance = Mathf.Min(clearance, distance);
+                        Check(distance >= level.PatrolClearance - .01f, "Home loop clear of pickup " + number + " guard " + g);
+                    }
+                }
+            }
+            Debug.Log("CAMPAIGN PATROL level=" + number + " beats=" + encounter.UsingBeats + " minHomeClearance=" +
+                clearance.ToString("F2", System.Globalization.CultureInfo.InvariantCulture));
             Check(game.player.Distractions.Remaining == level.Cans, "Starting cans " + number);
             Check(Mathf.Approximately(game.targetTime, level.ReferenceSeconds), "Reference duration " + number);
             Debug.Log("CAMPAIGN MEASURE level=" + number + " map=" + shell.Label + " shellSeed=" + shell.CurrentSeed +

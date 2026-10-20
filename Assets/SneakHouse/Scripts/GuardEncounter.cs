@@ -41,23 +41,35 @@ namespace SneakHouse
         public Plan CurrentPlan { get; private set; }
         public bool Validated { get; private set; }
         public string ValidationMessage { get; private set; } = "Authored patrol fallback";
+        // True when guards walk the level's PatrolPlans beats rather than the authored room routes.
+        public bool UsingBeats { get; private set; }
         private static string previousSignature;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetHistory() { previousSignature = null; }
         private void Awake()
         {
-            int seed = useFixedSeed ? fixedSeed : Guid.NewGuid().GetHashCode() & int.MaxValue;
-            for (int attempt = 0; attempt < 8; attempt++, seed = unchecked(seed + 1))
+            GameSession game = GetComponent<GameSession>();
+            IReadOnlyList<GuardBeat> beats = PatrolPlans.For(GameSession.SelectedLevel.Number);
+            // Level beats first; if they fail validation (stale layout, blocked node) fall back to the authored room routes.
+            for (int pass = 0; pass < 2; pass++)
             {
-                if (!TryBuildPlan(seed, out Plan plan)) break;
-                if (!useFixedSeed && plan.signature == previousSignature) continue;
-                Apply(plan); previousSignature = plan.signature;
-                return;
+                bool useBeats = pass == 0;
+                if (useBeats && (beats == null || beats.Count < game.ActiveGuards)) continue;
+                int seed = useFixedSeed ? fixedSeed : Guid.NewGuid().GetHashCode() & int.MaxValue;
+                for (int attempt = 0; attempt < 8; attempt++, seed = unchecked(seed + 1))
+                {
+                    if (!TryBuildPlan(seed, useBeats ? beats : null, out Plan plan)) break;
+                    if (!useFixedSeed && plan.signature == previousSignature) continue;
+                    Apply(plan, useBeats ? beats : null); previousSignature = plan.signature;
+                    return;
+                }
+                if (useBeats) Debug.LogWarning("Level patrol beats failed validation; using authored room routes.", this);
             }
             Debug.LogWarning("Encounter validation failed; keeping authored patrols.", this);
         }
-        public bool TryBuildPlan(int seed, out Plan plan)
+        public bool TryBuildPlan(int seed, out Plan plan) => TryBuildPlan(seed, null, out plan);
+        public bool TryBuildPlan(int seed, IReadOnlyList<GuardBeat> beats, out Plan plan)
         {
             plan = null;
             GameSession game = GetComponent<GameSession>();
@@ -75,25 +87,28 @@ namespace SneakHouse
             var random = new System.Random(seed);
             for (int i = valid.Count - 1; i > 0; i--)
             { int j = random.Next(i + 1); int temp = valid[i]; valid[i] = valid[j]; valid[j] = temp; }
+            var approaches = new List<Vector3>();
+            if (beats != null && !CollectApproaches(game, approaches)) return false;
             var assignments = new Assignment[game.ActiveGuards];
             string signature = "";
             for (int i = 0; i < assignments.Length; i++)
             {
                 Zone zone = zones[i];
-                if (zone.guard == null || zone.route == null || zone.route.Length < 2) return false;
-                foreach (Transform point in zone.route) if (point == null) return false;
-                if (!RouteConnected(zone.route)) return false;
-                int start = random.Next(zone.route.Length);
+                if (zone.guard == null) return false;
+                Vector3[] route = beats != null ? Points(beats[i].Home, beats[i].Floor) : Points(zone.route);
+                if (route == null || route.Length < 2 || !RouteConnected(route, true)) return false;
+                if (beats != null && !BeatValid(beats[i], route, approaches, game.Level.PatrolClearance)) return false;
+                int start = random.Next(route.Length);
                 bool reversed = random.Next(2) == 1;
                 Character character = roster[valid[i]];
                 Assignment assignment = null;
-                for (int candidate = 0; candidate < zone.route.Length; candidate++)
+                for (int candidate = 0; candidate < route.Length; candidate++)
                 {
-                    int index = (start + candidate) % zone.route.Length;
-                    int next = (index + (reversed ? zone.route.Length - 1 : 1)) % zone.route.Length;
-                    if (!NavMesh.SamplePosition(zone.route[index].position, out NavMeshHit hit, .35f, NavMesh.AllAreas)) continue;
-                    if (Mathf.Abs(hit.position.y - zone.route[index].position.y) > .35f) continue;
-                    Vector3 forward = zone.route[next].position - hit.position; forward.y = 0;
+                    int index = (start + candidate) % route.Length;
+                    int next = (index + (reversed ? route.Length - 1 : 1)) % route.Length;
+                    if (!NavMesh.SamplePosition(route[index], out NavMeshHit hit, .35f, NavMesh.AllAreas)) continue;
+                    if (Mathf.Abs(hit.position.y - route[index].y) > .35f) continue;
+                    Vector3 forward = route[next] - hit.position; forward.y = 0;
                     if (forward.sqrMagnitude < .01f) continue;
                     Quaternion rotation = Quaternion.LookRotation(forward);
                     if (!SafeSpawn(game.player.transform.position, zone.guard, character, hit.position, rotation)) continue;
@@ -111,14 +126,68 @@ namespace SneakHouse
             plan = new Plan { seed = seed, assignments = assignments, signature = signature };
             return true;
         }
-        private static bool RouteConnected(Transform[] points)
+        private static Vector3[] Points(Transform[] route)
+        {
+            if (route == null) return null;
+            var points = new Vector3[route.Length];
+            for (int i = 0; i < points.Length; i++)
+            {
+                if (route[i] == null) return null;
+                points[i] = route[i].position;
+            }
+            return points;
+        }
+        private static Vector3[] Points(IReadOnlyList<PatrolPoint> route, float floor)
+        {
+            var points = new Vector3[route.Count];
+            for (int i = 0; i < points.Length; i++) points[i] = new Vector3(route[i].X, floor, route[i].Z);
+            return points;
+        }
+        // Closed routes loop back to the first point; open ones end at the last.
+        private static bool RouteConnected(Vector3[] points, bool closed)
         {
             NavMeshPath path = new NavMeshPath();
-            for (int i = 0; i < points.Length; i++)
-                if (!NavMesh.SamplePosition(points[i].position, out NavMeshHit a, .35f, NavMesh.AllAreas) ||
-                    !NavMesh.SamplePosition(points[(i + 1) % points.Length].position, out NavMeshHit b, .35f, NavMesh.AllAreas) ||
+            int pairs = closed ? points.Length : points.Length - 1;
+            for (int i = 0; i < pairs; i++)
+                if (!NavMesh.SamplePosition(points[i], out NavMeshHit a, .35f, NavMesh.AllAreas) ||
+                    !NavMesh.SamplePosition(points[(i + 1) % points.Length], out NavMeshHit b, .35f, NavMesh.AllAreas) ||
                     !NavMesh.CalculatePath(a.position, b.position, NavMesh.AllAreas, path) || path.status != NavMeshPathStatus.PathComplete) return false;
             return true;
+        }
+        // Pickup spots of the level's required targets, as the player would stand to collect them.
+        private bool CollectApproaches(GameSession game, List<Vector3> approaches)
+        {
+            InteriorLayout interior = GetComponent<InteriorLayout>();
+            if (interior == null || interior.UsingFallback) return false;
+            foreach (int index in game.Level.TargetIndices)
+            {
+                int room = Array.FindIndex(interior.rooms, candidate => candidate.target == game.targets[index]);
+                if (room < 0) return false;
+                approaches.Add(interior.Approach(room));
+            }
+            return true;
+        }
+        // Home loop keeps its clearance from every pickup on the same floor; the peek trip must be walkable.
+        private static bool BeatValid(GuardBeat beat, Vector3[] home, List<Vector3> approaches, float clearance)
+        {
+            if (beat.Peek.Count == 0 || beat.PeekEvery < 1) return false;
+            foreach (Vector3 point in home)
+                foreach (Vector3 approach in approaches)
+                    if (Mathf.Abs(point.y - approach.y) < 1.5f &&
+                        Vector3.ProjectOnPlane(point - approach, Vector3.up).magnitude < clearance) return false;
+            var trip = new List<Vector3> { home[0] };
+            trip.AddRange(Points(beat.Peek, beat.Floor)); trip.Add(home[0]);
+            return RouteConnected(trip.ToArray(), false);
+        }
+        private Transform[] Nodes(string label, Vector3[] points)
+        {
+            var nodes = new Transform[points.Length];
+            for (int i = 0; i < nodes.Length; i++)
+            {
+                nodes[i] = new GameObject(label + " " + (i + 1)).transform;
+                nodes[i].SetParent(transform, false); nodes[i].position = points[i];
+            }
+            return nodes;
         }
         private static bool SafeSpawn(Vector3 player, GuardBrain guard, Character character, Vector3 position, Quaternion rotation)
         {
@@ -136,7 +205,7 @@ namespace SneakHouse
             bool inView = flat.magnitude <= guard.visionDistance && Vector3.Angle(rotation * Vector3.forward, flat) <= guard.fieldOfView * .5f;
             return !inView || Physics.Raycast(eye, direction.normalized, direction.magnitude, 1 << 8, QueryTriggerInteraction.Ignore);
         }
-        private void Apply(Plan plan)
+        private void Apply(Plan plan, IReadOnlyList<GuardBeat> beats)
         {
             for (int i = 0; i < plan.assignments.Length; i++)
             {
@@ -151,17 +220,29 @@ namespace SneakHouse
                 guard.characterName = character.displayName; guard.eyeHeight = character.eyeHeight;
                 guard.name = "Guard 0" + (i + 1) + " / " + character.displayName + " / " + guard.patrolZone;
                 guard.patrolPause = assignment.pause;
-                guard.patrol = new Transform[zone.route.Length];
-                for (int j = 0; j < zone.route.Length; j++)
+                Transform[] route = zone.route;
+                guard.peek = null; guard.peekEvery = 0;
+                if (beats != null)
                 {
-                    int index = (assignment.startIndex + (assignment.reversed ? zone.route.Length - j : j)) % zone.route.Length;
-                    guard.patrol[j] = zone.route[index];
+                    GuardBeat beat = beats[i];
+                    route = Nodes("Guard 0" + (i + 1) + " home", Points(beat.Home, beat.Floor));
+                    guard.peek = Nodes("Guard 0" + (i + 1) + " peek", Points(beat.Peek, beat.Floor));
+                    guard.peekEvery = beat.PeekEvery;
+                    guard.patrolZone = beat.Zone;
+                    guard.name = "Guard 0" + (i + 1) + " / " + character.displayName + " / " + guard.patrolZone;
+                }
+                guard.patrol = new Transform[route.Length];
+                for (int j = 0; j < route.Length; j++)
+                {
+                    int index = (assignment.startIndex + (assignment.reversed ? route.Length - j : j)) % route.Length;
+                    guard.patrol[j] = route[index];
                 }
                 NavMeshAgent agent = guard.GetComponent<NavMeshAgent>();
                 agent.height = character.bodyHeight;
                 agent.Warp(assignment.position); guard.transform.rotation = assignment.rotation;
             }
-            CurrentPlan = plan; Validated = true; ValidationMessage = "Valid / " + plan.assignments.Length + " patrol zones";
+            CurrentPlan = plan; Validated = true; UsingBeats = beats != null;
+            ValidationMessage = "Valid / " + plan.assignments.Length + (UsingBeats ? " patrol beats" : " patrol zones");
         }
         public string RosterLabel()
         {

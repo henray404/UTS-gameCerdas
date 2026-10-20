@@ -29,10 +29,14 @@ namespace SneakHouse
         public float LastNoiseTime { get; private set; } = -10;
         public int ResultScore { get; private set; }
         public int BestScore { get; private set; }
+        public float BestTime { get; private set; }
         public int ObjectivePoints { get; private set; }
         public int StealthPoints { get; private set; }
         public int TimePoints { get; private set; }
         public bool NewRecord { get; private set; }
+        public bool NewTimeRecord { get; private set; }
+        public float RecordedTime { get; private set; }
+        public ScoreProfile Scores { get; private set; }
         public bool PersistRecords { get; set; } = true;
         public const string ProgressKey = "SneakHouse.Campaign.v1.Completed";
         private static int selectedLevel = 1;
@@ -47,7 +51,6 @@ namespace SneakHouse
             GetComponent<GuardEncounter>() != null && GetComponent<GuardEncounter>().Validated;
         public string MissionIssue => MissionReady ? "" : "House routes or patrol unavailable. Return to Levels and try again.";
         public int ActiveGuards => Mathf.Clamp(activeGuardCount, 1, guards.Length);
-        private string RecordKey => "SneakHouse.Score.Campaign.v1.Level." + Level.Number;
         private static bool reopenBriefing;
         private static bool reopenLevels;
         private float messageUntil;
@@ -64,7 +67,9 @@ namespace SneakHouse
             Instance = this;
             Font.textureRebuilt += OnFontTextureRebuilt;
             Progress = new CampaignProgress(PlayerPrefs.GetInt(ProgressKey, 0));
-            BestScore = PlayerPrefs.GetInt(RecordKey, 0);
+            Scores = ScoreStore.Load();
+            BestScore = Scores.BestScore(Level.Number);
+            BestTime = Scores.BestTime(Level.Number);
             for (int i = 0; i < guards.Length; i++) guards[i].gameObject.SetActive(i < activeGuardCount);
             gameObject.AddComponent<MissionFlowUI>();
             Message = "Collect all " + RequiredTargetCount + " items. Return to the entrance.";
@@ -174,18 +179,18 @@ namespace SneakHouse
         {
             if (Phase != ScreenState.Playing || (win && (Collected != RequiredTargetCount || !MissionReady))) return;
             Finished = true; Won = win;
-            ObjectivePoints = win ? 6000 : 0;
-            StealthPoints = win ? Mathf.Max(0, 2500 - AlertReports * 500) : 0;
-            TimePoints = win ? Mathf.RoundToInt(1500 * Mathf.Clamp01(1 - Elapsed / Mathf.Max(1, targetTime))) : 0;
-            ResultScore = ObjectivePoints + StealthPoints + TimePoints;
+            ScoreBreakdown score = ScoreRules.Calculate(win, AlertReports, Elapsed, targetTime);
+            ObjectivePoints = score.Objective; StealthPoints = score.Stealth; TimePoints = score.Time;
+            ResultScore = score.Total;
+            RecordedTime = Mathf.Max(.01f, Elapsed);
             NewRecord = win && ResultScore > BestScore;
-            if (NewRecord)
-            {
-                BestScore = ResultScore;
-                if (PersistRecords) PlayerPrefs.SetInt(RecordKey, BestScore);
-            }
+            NewTimeRecord = win && (BestTime <= 0 || RecordedTime < BestTime);
             if (win)
             {
+                Scores.Record(Level.Number, new ScoreEntry(ResultScore, RecordedTime, AlertReports, DateTime.UtcNow.ToString("yyyy-MM-dd")));
+                BestScore = Scores.BestScore(Level.Number);
+                BestTime = Scores.BestTime(Level.Number);
+                if (PersistRecords) ScoreStore.Save(Scores);
                 int before = Progress.HighestUnlocked;
                 Progress = Progress.Complete(Level.Number);
                 NewlyUnlocked = Progress.HighestUnlocked > before;

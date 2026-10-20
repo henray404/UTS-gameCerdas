@@ -45,3 +45,9 @@ trap 'rm -rf -- "$test_dir"' EXIT
     "$project_dir/Assets/SneakHouse/Scripts/CampaignLevels.cs" \
     "$project_dir/Tests/CampaignRulesTests.cs"
 "$mono_dir/mono" "$test_dir/campaign-rules.exe"
+"$mono_dir/mono" "$mono_dir/../lib/mono/4.5/mcs.exe" -langversion:latest \
+    -out:"$test_dir/score-rules.exe" \
+    "$project_dir/Assets/SneakHouse/Scripts/ScoreRules.cs" \
+    "$project_dir/Assets/SneakHouse/Scripts/ScoreData.cs" \
+    "$project_dir/Tests/ScoreRulesTests.cs"
+"$mono_dir/mono" "$test_dir/score-rules.exe"

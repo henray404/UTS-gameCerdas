@@ -10,7 +10,16 @@ Tests/run-campaign-rules.sh
 Tests/run-campaign-rules.sh /path/to/Editor/Unity
 ```
 
-This compiles the real `CampaignLevels.cs` with the test executable. No Unity process, external test package, or game save is needed. Expected result: `PASS: 123 campaign assertions`.
+This compiles the real `CampaignLevels.cs`, `ScoreRules.cs`, and `ScoreData.cs` into two test executables. No Unity process, external test package, or game save is needed. Expected result:
+
+```
+PASS: 123 campaign assertions
+PASS: 55 score assertions
+```
+
+The score tests cover the formula bounds, top-five score and speed boards, tie-breaks, legacy migration (legacy entries never enter speed boards), corrupt-data normalization, profile name fallback, and score/speed totals.
+
+`.gitattributes` keeps `*.sh` files LF so Windows Git Bash can run the script after a fresh checkout. An existing checkout may need `git rm --cached -r . && git reset --hard` (or re-cloning) to pick up the line-ending change.
 
 ## Unity integration
 
@@ -23,7 +32,7 @@ Create a disposable project copy at `/tmp/sneakhouse-level-validation` containin
   -logFile /tmp/sneakhouse-campaign-validation.log
 ```
 
-Do not pass `-quit`: the runner enters Play Mode, survives reload, runs all six levels, and exits with 0 only after all assertions pass. Timeout or game runtime errors return 1. The helper rejects interactive editor invocation. It resets only campaign/score keys under the validation product identity.
+Do not pass `-quit`: the runner enters Play Mode, survives reload, runs all six levels, and exits with 0 only after all assertions pass. Timeout or game runtime errors return 1. The helper rejects interactive editor invocation. It resets only campaign/score keys (`SneakHouse.Scores.v2` plus legacy per-level keys) under the validation product identity.
 
 On Windows, use an isolated folder under `%TEMP%` and update the path check **in the copy only** so it points at that folder; keep the source check unchanged.
 
@@ -38,6 +47,13 @@ On Windows, use an isolated folder under `%TEMP%` and update the path check **in
 - Earlier GameView inspection covered the menus and level selection, including a locked level's details and disabled Play button: [level-selection.png](screenshots/level-selection.png). The new 3D target highlight has not yet been visually inspected, and human balance testing remains pending.
 - The source project remains Unity 6000.2.10f1. That exact editor is not installed on this machine, so execution on it is still unverified.
 - Unity 6000.6 emitted an editor-only `UnityEditor.Search.SearchDatabase` / `SearchInit` startup exception. The runner explicitly excludes that stack from game failures, logs its exclusion, and fails on other Play Mode errors. Existing API deprecation warnings were retained.
+
+## Scoring / leaderboard update — 20 October 2026
+
+- Pure rules: 123 campaign and 55 score assertions pass (Mono, Linux).
+- Runtime scripts compiled against UnityEngine 2021.3 reference assemblies with a local shim for the Unity 6 `Rigidbody.linearVelocity` rename; `CampaignValidation.cs` compiled against a minimal `UnityEditor` stub. This proves the C# is consistent, not that it runs in Unity.
+- `CampaignValidation` now reads the v2 store, checks that loss writes no record, that replays join the level leaderboard, and that each win stores a speed record. This updated harness has **not yet been run** in Unity.
+- Main menu, Hall of Records, result breakdown, and level-detail layouts were checked only with offline mockups rendered from the game's TTF fonts at 1440x900 (no text overflow found). GameView inspection is still pending.
 
 Measured walkable areas and complete balancing calculations are in [the level report](../LAPORAN-SISTEM-LEVEL.md).
 

@@ -1,25 +1,40 @@
 # Sneak House
 
-Sneak House adalah game **stealth infiltration** dengan sudut pandang top-down miring dan visual low-poly. Pemain menyusup ke sebuah rumah, mengambil tiga barang target, lalu kembali ke titik keluar tanpa tertangkap penjaga.
+Sneak House adalah game **stealth infiltration** dengan sudut pandang top-down miring dan visual low-poly. Pemain menyusup ke sebuah rumah, mengambil barang wajib sesuai level, lalu kembali ke titik keluar tanpa tertangkap penjaga.
 
 ## Tujuan permainan
 
-Kumpulkan drive rahasia, jam tangan, dan konsol game. Setelah semua target terkumpul, kembali ke lingkaran hijau di pintu masuk untuk menyelesaikan misi. Pemain kalah jika tertangkap penjaga.
+Kumpulkan barang yang ditandai dalam briefing. Level awal membutuhkan konsol saja, kemudian konsol dan drive, lalu ketiga barang termasuk jam tangan. Setelah semua target wajib terkumpul, kembali ke lingkaran hijau di pintu masuk untuk menyelesaikan misi. Pemain kalah jika tertangkap penjaga.
 
-Tersedia empat bentuk rumah: rumah kolektor, vila berbentuk L, estate berbentuk U, serta Loft Villa dua lantai dengan tangga courtyard. Setiap misi memiliki tiga barang target dan satu titik keluar. Rumah kolektor/vila L dijaga tiga karakter; estate dan Loft Villa memakai empat penjaga.
+Tersedia enam level dengan empat bentuk rumah: rumah kolektor, vila berbentuk L, estate berbentuk U, serta Loft Villa dua lantai dengan tangga courtyard. Setiap misi memiliki satu titik keluar.
+
+## Level dan progres
+
+Pilih **Select Level** pada menu utama. Papan misi menampilkan status **Available**, **Locked**, dan **Complete**. Profil baru hanya membuka level 1. Menang level sebelumnya membuka level berikutnya. Progres dan rekor tiap level disimpan lokal, sedangkan level selesai tetap bisa dimainkan ulang.
+
+| Level | Map | Penjaga | Target wajib | Kaleng |
+|---:|---|---:|---|---:|
+| 1 — First Steps | Collector's House | 1 | Konsol | 4 |
+| 2 — Office Job | Collector's House | 2 | Konsol, drive | 3 |
+| 3 — Full Collection | Collector's House | 3 | Konsol, drive, jam | 3 |
+| 4 — Library Detour | Library Villa | 3 | Konsol, drive, jam | 3 |
+| 5 — Across the Courtyard | Courtyard Estate | 4 | Konsol, drive, jam | 2 |
+| 6 — The Upstairs Job | Loft Villa | 4 | Konsol, drive, jam | 1 |
+
+Jarak dan sudut pandang serta durasi pencarian penjaga meningkat bertahap. Kecepatan gerak penjaga tetap. 
 
 ## Alur permainan
 
-Menu utama → briefing misi → menyusup dan mengambil target → keluar dari rumah → hasil dan skor.
+Menu utama → pilih level terbuka → briefing misi → menyusup dan mengambil target → keluar dari rumah → hasil dan skor → level berikutnya atau replay.
 
 Pemain dapat menjeda permainan, mengulang misi, atau kembali ke menu utama. Mengulang misi mempertahankan rumah dan posisi target, mengembalikan perlengkapan, lalu mengacak susunan penjaga serta patroli.
 
-Start Mission membuat kontrak baru dengan bentuk rumah dan susunan interior berbeda. Mengulang misi mempertahankan keduanya. Ruang tamu, kantor, dan koleksi masing-masing memiliki tiga tata letak, sehingga setiap bentuk rumah memiliki 27 kombinasi interior. Pada vila, kantor berpindah ke sayap perpustakaan; pada estate, ruang koleksi juga berpindah ke sayap galeri. Loft Villa menempatkan kantor di lantai atas. Tangga dapat dipakai pemain dan penjaga, sedangkan tampilan atas membuka lantai yang sedang ditempati pemain secara otomatis. Courtyard memberi jalur alternatif melalui pintu samping. Target menempati meja atau display yang sesuai; tempat bersembunyi di kolong meja mengikuti posisi meja kantor. Jalur menuju target, tempat persembunyian, dan pintu keluar diperiksa sebelum misi dimulai.
+Setiap level menentukan bentuk rumah dan seed interior tetap. Mengulang misi mempertahankan keduanya. Ruang tamu, kantor, dan koleksi masing-masing memiliki tiga tata letak, sehingga katalog mendukung 27 kombinasi interior per bentuk rumah. Pada vila, kantor berpindah ke sayap perpustakaan; pada estate, ruang koleksi juga berpindah ke sayap galeri. Loft Villa menempatkan kantor di lantai atas. Tangga dapat dipakai pemain dan penjaga, sedangkan tampilan atas membuka lantai yang sedang ditempati pemain secara otomatis. Courtyard memberi jalur alternatif melalui pintu samping. Target menempati meja atau display yang sesuai; tempat bersembunyi di kolong meja mengikuti posisi meja kantor. Jalur menuju target, tempat persembunyian, dan pintu keluar diperiksa sebelum misi dimulai. Interior bermasalah dicoba ulang pada map yang sama. Jika validasi tetap gagal, misi tidak dapat dimulai.
 
 ## Mekanik utama
 
 - **Mengendap:** bergerak lebih pelan tanpa mengeluarkan suara langkah. Berlari menghasilkan suara lebih besar dan dapat menarik perhatian penjaga.
-- **Distraksi:** gunakan tiga kaleng untuk memancing penjaga memeriksa lokasi bunyi benturan. Kaleng terpisah dari barang target misi.
+- **Distraksi:** gunakan persediaan kaleng sesuai level untuk memancing penjaga memeriksa lokasi bunyi benturan. Kaleng terpisah dari barang target misi.
 - **Bersembunyi:** manfaatkan semak, tenda, atau kolong meja. Saat bersembunyi, pemain tidak dapat bergerak, mengambil target, atau menjatuhkan kaleng.
 - **Risiko ketahuan:** penjaga yang melihat pemain masuk ke tempat persembunyian tetap mengingat lokasinya dan dapat memeriksanya. Suara di dekat tempat persembunyian juga dapat memicu pemeriksaan.
 - **Kamera pengejaran:** saat dikejar, kamera turun secara halus dari top-down ke first person. WASD mengikuti arah pandang dan mouse digunakan untuk menoleh. Setelah pengejaran berhenti selama beberapa detik atau pemain bersembunyi, kamera kembali ke tampilan atas. Pause melepas kursor.
@@ -29,7 +44,7 @@ Start Mission membuat kontrak baru dengan bentuk rumah dan susunan interior berb
 
 Penjaga berpatroli, mengamati area pandang, dan mendengarkan suara. Dinding menghalangi pandangan serta meredam suara. Ketika menemukan petunjuk, penjaga memeriksa sumbernya; jika pemain terlihat, penjaga mengejar.
 
-Setiap misi memilih tiga atau empat karakter berbeda dari Bogo, Judy, Clawhauser, dan Spike. Jumlah penjaga dihitung dari luas interior yang dapat dilalui; courtyard dan taman tidak dihitung. Titik awal, arah rute, dan jeda patroli bervariasi. Zona patroli mengikuti bentuk rumah: ruang tamu, kantor/perpustakaan, ruang koleksi/galeri, serta penghubung pada estate. Ketika satu penjaga mendeteksi pemain, penjaga lain menerima laporan dan mencari di titik berbeda sekitar posisi terakhir yang diketahui. Laporan tidak memberi posisi pemain yang sudah berpindah tanpa terlihat.
+Setiap misi memilih satu hingga empat karakter berbeda dari Bogo, Judy, Clawhauser, dan Spike. Jumlah penjaga mengikuti level. Luas interior bebas berjalan tetap diukur untuk informasi debug. Titik awal, arah rute, dan jeda patroli bervariasi. Zona patroli mengikuti bentuk rumah: ruang tamu, kantor/perpustakaan, ruang koleksi/galeri, serta penghubung pada estate. Ketika satu penjaga mendeteksi pemain, penjaga lain menerima laporan dan mencari di titik berbeda sekitar posisi terakhir yang diketahui. Laporan tidak memberi posisi pemain yang sudah berpindah tanpa terlihat.
 
 Saat kehilangan jejak, penjaga menuju lokasi bukti lalu mencari sebelum kembali ke zona patrolinya. Waktu perjalanan mengikuti panjang jalur, termasuk naik-turun tangga; waktu pencarian dimulai setelah penjaga tiba. Dinding dan lantai menghalangi pandangan antar lantai. Bersembunyi tidak langsung menghapus ingatan penjaga.
 
@@ -50,7 +65,7 @@ Saat kehilangan jejak, penjaga menuju lokasi bukti lalu mencari sebelum kembali 
 
 ## Skor
 
-Kemenangan memberikan skor dari target yang berhasil diambil, bonus stealth, dan bonus waktu. Semakin sedikit laporan penjaga dan semakin cepat misi selesai, semakin besar bonus yang diperoleh. Melewati waktu acuan tidak langsung menggagalkan misi. Waktu acuan menyesuaikan bentuk rumah. Rekor terbaik disimpan secara lokal dan dipisahkan berdasarkan bentuk rumah.
+Kemenangan memberikan 6000 poin objektif, bonus stealth hingga 2500, dan bonus waktu hingga 1500. Semakin sedikit laporan penjaga dan semakin cepat misi selesai, semakin besar bonus yang diperoleh. Melewati waktu acuan menghilangkan bonus waktu tetapi tidak menggagalkan misi. Waktu acuan mengikuti jumlah target, penjaga, topologi map, dan lantai. Rekor terbaik disimpan lokal dan dipisahkan per level.
 
 ## Suasana
 

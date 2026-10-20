@@ -39,6 +39,9 @@ namespace SneakHouse
         public void Refresh()
         {
             if (shell == null || !shell.HasUpperFloor || game == null) { Restore(); return; }
+            InteriorLayout interior = GetComponent<InteriorLayout>();
+            if (interior == null || interior.CurrentRooms.Length <= 1 || interior.CurrentRooms[1] == null)
+            { Restore(); return; }
             if (cachedShell != shell.Current || cachedRoom != GetComponent<InteriorLayout>().CurrentRooms[1]) Cache();
             float height = shell.Current.upperHeight;
             if (game.player.transform.position.y > height-.4f) FloorNumber = 2;

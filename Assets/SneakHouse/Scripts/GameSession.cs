@@ -7,7 +7,7 @@ namespace SneakHouse
     [DefaultExecutionOrder(-200)]
     public class GameSession : MonoBehaviour
     {
-        public enum ScreenState { MainMenu, Briefing, Playing, Paused, Results }
+        public enum ScreenState { MainMenu, Briefing, Playing, Paused, Results, LevelSelect }
         public ScreenState Phase { get; private set; } = ScreenState.MainMenu;
         public static GameSession Instance { get; private set; }
         public static event Action<Vector3, float, string> Noise;
@@ -34,23 +34,64 @@ namespace SneakHouse
         public int TimePoints { get; private set; }
         public bool NewRecord { get; private set; }
         public bool PersistRecords { get; set; } = true;
+        public const string ProgressKey = "SneakHouse.Campaign.v1.Completed";
+        private static int selectedLevel = 1;
+        public static CampaignLevel SelectedLevel => CampaignLevels.Get(selectedLevel);
+        public CampaignLevel Level => SelectedLevel;
+        public CampaignProgress Progress { get; private set; }
+        public bool NewlyUnlocked { get; private set; }
+        public int RequiredTargetCount => Level.TargetCount;
+        public bool MissionReady => GetComponent<InteriorLayout>() != null && GetComponent<InteriorLayout>().Validated &&
+            !GetComponent<InteriorLayout>().UsingFallback && GetComponent<HouseShell>() != null &&
+            GetComponent<HouseShell>().VariantIndex == Level.ShellIndex &&
+            GetComponent<GuardEncounter>() != null && GetComponent<GuardEncounter>().Validated;
+        public string MissionIssue => MissionReady ? "" : "House routes or patrol unavailable. Return to Levels and try again.";
         public int ActiveGuards => Mathf.Clamp(activeGuardCount, 1, guards.Length);
-        private string RecordKey => "SneakHouse.Score.v1." + SceneManager.GetActiveScene().name + "." + (GetComponent<HouseShell>() == null ? "0" : GetComponent<HouseShell>().VariantIndex.ToString());
+        private string RecordKey => "SneakHouse.Score.Campaign.v1.Level." + Level.Number;
         private static bool reopenBriefing;
+        private static bool reopenLevels;
         private float messageUntil;
         private GUIStyle title, text, small, button, secondaryButton;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetStatics() { Instance = null; Noise = null; SharedAlert = null; reopenBriefing = false; }
+        private static void ResetStatics()
+        {
+            Instance = null; Noise = null; SharedAlert = null;
+            reopenBriefing = reopenLevels = false; selectedLevel = 1;
+        }
         private void Awake()
         {
             Instance = this;
             Font.textureRebuilt += OnFontTextureRebuilt;
+            Progress = new CampaignProgress(PlayerPrefs.GetInt(ProgressKey, 0));
             BestScore = PlayerPrefs.GetInt(RecordKey, 0);
             for (int i = 0; i < guards.Length; i++) guards[i].gameObject.SetActive(i < activeGuardCount);
             gameObject.AddComponent<MissionFlowUI>();
-            SetScreen(reopenBriefing ? ScreenState.Briefing : ScreenState.MainMenu);
-            reopenBriefing = false;
+            Message = "Collect all " + RequiredTargetCount + " items. Return to the entrance.";
+            SetScreen(reopenLevels ? ScreenState.LevelSelect : reopenBriefing ? ScreenState.Briefing : ScreenState.MainMenu);
+            reopenBriefing = reopenLevels = false;
+        }
+        // Unity objects are configured in place before their Awake and the NavMesh build.
+        public void ApplyLevelConfiguration()
+        {
+            activeGuardCount = Level.Guards; targetTime = Level.ReferenceSeconds;
+            for (int i = 0; i < targets.Length; i++) targets[i].gameObject.SetActive(IsRequiredTarget(targets[i]));
+            for (int i = 0; i < guards.Length; i++)
+            {
+                guards[i].visionDistance = Level.VisionDistance;
+                guards[i].fieldOfView = Level.FieldOfView;
+                guards[i].searchDuration = Level.SearchSeconds;
+                guards[i].gameObject.SetActive(i < activeGuardCount);
+            }
+            PlayerDistraction distraction = player.GetComponent<PlayerDistraction>();
+            if (distraction != null) distraction.startingCans = Level.Cans;
+        }
+        public int TargetIndex(LootTarget target) => Array.IndexOf(targets, target);
+        public bool IsRequiredTarget(LootTarget target)
+        {
+            int index = TargetIndex(target);
+            foreach (int required in Level.TargetIndices) if (required == index) return true;
+            return false;
         }
         private void SetScreen(ScreenState screen)
         {
@@ -62,18 +103,35 @@ namespace SneakHouse
         {
             if (Phase == ScreenState.MainMenu) SetScreen(ScreenState.Briefing);
         }
+        public void ShowLevelSelect()
+        {
+            if (Phase == ScreenState.MainMenu || Phase == ScreenState.Briefing || Phase == ScreenState.LevelSelect)
+                SetScreen(ScreenState.LevelSelect);
+            else
+            {
+                reopenLevels = true; reopenBriefing = false;
+                Time.timeScale = 1; SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+            }
+        }
+        public bool StartLevel(int number)
+        {
+            if (Phase == ScreenState.Playing || Phase == ScreenState.Paused || !Progress.IsUnlocked(number)) return false;
+            selectedLevel = number; reopenBriefing = true; reopenLevels = false;
+            Time.timeScale = 1; SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+            return true;
+        }
         public void ShowMainMenu()
         {
-            if (Phase == ScreenState.Briefing) SetScreen(ScreenState.MainMenu);
+            if (Phase == ScreenState.Briefing || Phase == ScreenState.LevelSelect) SetScreen(ScreenState.MainMenu);
             else if (Phase == ScreenState.Playing || Phase == ScreenState.Paused || Phase == ScreenState.Results)
             {
-                reopenBriefing = false; Time.timeScale = 1;
+                reopenBriefing = reopenLevels = false; Time.timeScale = 1;
                 SceneManager.LoadScene(SceneManager.GetActiveScene().name);
             }
         }
         public void BeginMission()
         {
-            if (Phase == ScreenState.Briefing) SetScreen(ScreenState.Playing);
+            if (Phase == ScreenState.Briefing && Progress.IsUnlocked(Level.Number) && MissionReady) SetScreen(ScreenState.Playing);
         }
         public void TogglePause()
         {
@@ -88,14 +146,14 @@ namespace SneakHouse
             if (Phase == ScreenState.Playing) Elapsed += Time.deltaTime;
             if (messageUntil > 0 && Time.time > messageUntil)
             {
-                Message = Collected == targets.Length ? "All items collected. Return to the entrance." : "Watch the patrol. Running makes noise.";
+                Message = Collected == RequiredTargetCount ? "All items collected. Return to the entrance." : "Watch the patrol. Running makes noise.";
                 messageUntil = 0;
             }
         }
         public void Notify(string message) { Message = message; messageUntil = Time.time + 3; }
         public void AddLoot(LootTarget target)
         {
-            if (Phase != ScreenState.Playing || target.Collected) return;
+            if (Phase != ScreenState.Playing || target == null || !IsRequiredTarget(target) || target.Collected) return;
             target.MarkCollected(); Collected++;
             Notify("Collected: " + target.Label);
         }
@@ -110,7 +168,7 @@ namespace SneakHouse
         }
         public void End(bool win)
         {
-            if (Phase != ScreenState.Playing) return;
+            if (Phase != ScreenState.Playing || (win && (Collected != RequiredTargetCount || !MissionReady))) return;
             Finished = true; Won = win;
             ObjectivePoints = win ? 6000 : 0;
             StealthPoints = win ? Mathf.Max(0, 2500 - AlertReports * 500) : 0;
@@ -120,20 +178,27 @@ namespace SneakHouse
             if (NewRecord)
             {
                 BestScore = ResultScore;
-                if (PersistRecords) { PlayerPrefs.SetInt(RecordKey, BestScore); PlayerPrefs.Save(); }
+                if (PersistRecords) PlayerPrefs.SetInt(RecordKey, BestScore);
             }
+            if (win)
+            {
+                int before = Progress.HighestUnlocked;
+                Progress = Progress.Complete(Level.Number);
+                NewlyUnlocked = Progress.HighestUnlocked > before;
+                if (PersistRecords) PlayerPrefs.SetInt(ProgressKey, Progress.HighestCompleted);
+            }
+            if (PersistRecords && win) PlayerPrefs.Save();
             SetScreen(ScreenState.Results);
             Message = win ? "All items secured. You made it out." : "Caught by a guard. Try another route.";
         }
         public void Restart()
         {
-            reopenBriefing = true;
+            reopenBriefing = true; reopenLevels = false;
             Time.timeScale = 1; SceneManager.LoadScene(SceneManager.GetActiveScene().name);
         }
         public void NewContract()
         {
-            InteriorLayout.NewContract(); HouseShell.NewContract(); reopenBriefing = true;
-            Time.timeScale = 1; SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+            ShowLevelSelect();
         }
         private void OnFontTextureRebuilt(Font font)
         {
@@ -169,12 +234,16 @@ namespace SneakHouse
             Matrix4x4 old = GUI.matrix; GUI.matrix = Matrix4x4.Scale(Vector3.one * scale);
             float w = Screen.width / scale, h = Screen.height / scale;
             LowPolyUI.Board(new Rect(24, 22, 300, 106));
+            int portrait = 0;
             for (int i = 0; i < targets.Length; i++)
             {
-                LowPolyUI.Portrait(new Rect(46 + i * 58, 42, 44, 44), i);
-                if (targets[i].Collected) GUI.Label(new Rect(51 + i * 58, 86, 44, 24), "OK", small);
+                if (!IsRequiredTarget(targets[i])) continue;
+                LowPolyUI.Portrait(new Rect(46 + portrait * 58, 42, 44, 44), i);
+                if (targets[i].Collected) GUI.Label(new Rect(51 + portrait * 58, 86, 44, 24), "OK", small);
+                portrait++;
             }
-            GUI.Label(new Rect(232, 55, 72, 36), Collected + " / " + targets.Length, text);
+            GUI.Label(new Rect(232, 55, 72, 36), Collected + " / " + RequiredTargetCount, text);
+            GUI.Label(new Rect(42, 112, 240, 28), "LEVEL " + Level.Number + " / " + CampaignLevels.Count, small);
             FloorCutaway floor = GetComponent<FloorCutaway>();
             if (GetComponent<HouseShell>() != null && GetComponent<HouseShell>().HasUpperFloor && floor != null)
                 GUI.Label(new Rect(232,89,72,28),floor.FloorNumber+"F",small);

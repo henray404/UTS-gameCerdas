@@ -91,7 +91,7 @@ namespace SneakHouse
             if(IsHidden)return;
             foreach (LootTarget loot in GameSession.Instance.targets)
             {
-                if (loot.Collected) continue;
+                if (!GameSession.Instance.IsRequiredTarget(loot) || loot.Collected) continue;
                 Vector3 flat = loot.transform.position - transform.position; flat.y = 0;
                 if (Mathf.Abs(loot.transform.position.y-transform.position.y) > 1.6f) continue;
                 if (flat.sqrMagnitude >= best) continue;

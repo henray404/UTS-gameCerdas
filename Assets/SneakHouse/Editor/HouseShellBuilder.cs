@@ -43,7 +43,6 @@ namespace SneakHouseEditor
             if (shell == null) shell = Undo.AddComponent<HouseShell>(game.gameObject);
             shell.variants = Enumerable.Range(0,4).Select(Build).ToArray();
             if (game.GetComponent<FloorCutaway>() == null) Undo.AddComponent<FloorCutaway>(game.gameObject);
-            shell.useFixedSeed = false; shell.areaPerGuard = 60;
             EditorUtility.SetDirty(shell); EditorUtility.SetDirty(game); EditorUtility.SetDirty(encounter);
             EditorSceneManager.MarkSceneDirty(game.gameObject.scene); EditorSceneManager.SaveScene(game.gameObject.scene); AssetDatabase.SaveAssets();
         }

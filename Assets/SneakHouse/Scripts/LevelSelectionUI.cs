@@ -140,7 +140,7 @@ namespace SneakHouse
             DrawText(new Rect(x + 12, rect.y + 210, 178, 58), level.Name, name, ink);
             DrawSymbol(new Rect(x + 22, rect.y + 274, 25, 25), 3, ink);
             DrawText(new Rect(x + 56, rect.y + 269, 134, 36),
-                level.Guards + (level.Guards == 1 ? " GUARD" : " GUARDS"), count, ink);
+                level.Guards + (level.Guards == 1 ? " MONSTER" : " MONSTERS"), count, ink);
             DrawText(new Rect(x + 12, rect.y + 308, 178, 30), level.MapName, map, ink);
         }
 

@@ -73,8 +73,10 @@ namespace SneakHouse
                 Vector3 toward = nearest.transform.position - game.player.transform.position; toward.y = 0;
                 if (Vector3.Dot(chaseView.PlanarForward, toward.normalized) < -.3f) danger = Mathf.Min(1, danger + .06f);
             }
-            else if (chaseView.IsFirstPerson) danger = .22f;
-            if (game.player.IsHidden) danger = game.player.Hiding.Compromised ? .3f : 0;
+            else if (chaseView.IsFirstPerson) danger = Mathf.Lerp(.1f, .42f, MaxSuspicion(game));
+            // Hiding stays tense: the heartbeat rises as a monster walks past the hiding spot.
+            if (game.player.IsHidden)
+                danger = Mathf.Max(game.player.Hiding.Compromised ? .3f : 0, .62f * Mathf.InverseLerp(7, 1.5f, NearestGuard(game)));
             TargetIntensity = danger * effectIntensity;
             Intensity = Mathf.MoveTowards(Intensity, TargetIntensity, delta * (TargetIntensity > Intensity ? 1.8f : .32f));
 
@@ -89,6 +91,21 @@ namespace SneakHouse
             HeartPulse = Mathf.Exp(-Mathf.Pow((phase - .04f) * 22, 2)) + .65f * Mathf.Exp(-Mathf.Pow((phase - .28f) * 24, 2));
         }
 
+        private static float MaxSuspicion(GameSession game)
+        {
+            float most = 0;
+            foreach (GuardBrain guard in game.guards)
+                if (guard != null && guard.isActiveAndEnabled) most = Mathf.Max(most, guard.Suspicion);
+            return Mathf.Clamp01(most);
+        }
+        private static float NearestGuard(GameSession game)
+        {
+            float nearest = float.PositiveInfinity;
+            foreach (GuardBrain guard in game.guards)
+                if (guard != null && guard.isActiveAndEnabled)
+                    nearest = Mathf.Min(nearest, Vector3.Distance(guard.transform.position, game.player.transform.position));
+            return nearest;
+        }
         private void Loop(AudioSource source, float volume, float pitch)
         {
             if (source == null || source.clip == null) return;

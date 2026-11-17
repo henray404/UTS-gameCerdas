@@ -61,7 +61,7 @@ namespace SneakHouse
             for (int i = 0; i < butterflies.Length; i++)
             {
                 Butterfly b = butterflies[i]; if (b.flight == null || b.leftWing == null || b.rightWing == null) continue;
-                b.flight.gameObject.SetActive(moving);
+                b.flight.gameObject.SetActive(moving && !HorrorDirector.Night);
                 float phase = t * .85f + i * 2.8f;
                 b.flight.localPosition = b.center + new Vector3(Mathf.Sin(phase) * .68f, Mathf.Sin(phase * 2.1f) * .17f, Mathf.Sin(phase * .7f) * .85f);
                 Vector3 direction = new Vector3(Mathf.Cos(phase) * .68f, 0, Mathf.Cos(phase * .7f) * .595f);

@@ -1,6 +1,6 @@
-# Sneak House
+# Hollow House (Sneak House)
 
-Sneak House adalah game **stealth infiltration** dengan sudut pandang top-down miring dan visual low-poly. Pemain menyusup ke sebuah rumah, mengambil barang wajib sesuai level, lalu kembali ke titik keluar tanpa tertangkap penjaga.
+Hollow House adalah game **horor stealth first-person** dengan visual low-poly. Pada malam hari pemain menyusup ke rumah terbengkalai yang dihuni makhluk bayangan, mengambil relik terkutuk sesuai level, lalu kembali ke pintu masuk tanpa tertangkap. Seluruh misi dimainkan dari mata pemain dengan senter sebagai sumber cahaya utama. AI penjaga (FSM Patrol, Investigate, Chase, Search, Return) tidak berubah; hanya wujud, suara, dan suasana yang diganti.
 
 ## Tujuan permainan
 
@@ -38,14 +38,17 @@ Setiap level menentukan bentuk rumah dan seed interior tetap. Mengulang misi mem
 - **Distraksi:** gunakan persediaan kaleng sesuai level untuk memancing penjaga memeriksa lokasi bunyi benturan. Kaleng terpisah dari barang target misi.
 - **Bersembunyi:** manfaatkan semak, tenda, atau kolong meja. Saat bersembunyi, pemain tidak dapat bergerak, mengambil target, atau menjatuhkan kaleng.
 - **Risiko ketahuan:** penjaga yang melihat pemain masuk ke tempat persembunyian tetap mengingat lokasinya dan dapat memeriksanya. Suara di dekat tempat persembunyian juga dapat memicu pemeriksaan.
-- **Kamera pengejaran:** saat dikejar, kamera turun secara halus dari top-down ke first person. WASD mengikuti arah pandang dan mouse digunakan untuk menoleh. Setelah pengejaran berhenti selama beberapa detik atau pemain bersembunyi, kamera kembali ke tampilan atas. Pause melepas kursor.
-- **Tekanan pengejaran:** detak jantung, napas, dengung rendah, dan langkah penjaga menambah ketegangan. Semakin dekat pengejar, semakin kuat tekanan suara dan visual. Sudut layar menggelap, kamera bergetar ringan, dan suara taman meredup. Efek mereda saat lolos dan berhenti ketika pause atau misi selesai.
+- **First person penuh:** saat misi dimulai, kamera turun dari tampilan atas ke mata pemain dan tetap first person sampai misi selesai. WASD mengikuti arah pandang dan mouse dipakai untuk menoleh. Saat bersembunyi, kamera mengintip dari dalam tempat persembunyian dan masih bisa menoleh. Pause melepas kursor. Kamera atas hanya dipakai di menu.
+- **Senter:** tombol T menyalakan atau mematikan senter. Senter berkedip sesekali, dan bergetar parah saat monster mengejar dari dekat.
+- **Tekanan horor:** detak jantung, napas, dengung rendah, dan langkah monster menambah ketegangan. Tekanan naik pelan saat monster mulai curiga, memuncak saat dikejar, dan juga naik saat monster lewat di dekat tempat persembunyian. Sudut layar menggelap, kamera bergetar ringan, dan suara malam meredup. Efek mereda saat lolos dan berhenti ketika pause atau misi selesai.
+- **Gangguan acak:** setiap 16 sampai 38 detik terdengar suara tanpa sumber jelas (pintu berderit, ketukan, bisikan, jeritan jauh) dari arah acak di sekitar pemain, kadang disertai lampu berkedip. Gangguan tidak muncul saat sedang dikejar.
+- **Jumpscare:** tertangkap memicu jeritan, kilatan merah, dan sepasang mata menyala sebelum layar hasil.
 
 ## Perilaku penjaga
 
 Penjaga berpatroli, mengamati area pandang, dan mendengarkan suara. Dinding menghalangi pandangan serta meredam suara. Ketika menemukan petunjuk, penjaga memeriksa sumbernya; jika pemain terlihat, penjaga mengejar.
 
-Setiap misi memilih satu hingga empat karakter berbeda dari Bogo, Judy, Clawhauser, dan Spike. Jumlah penjaga mengikuti level. Luas interior bebas berjalan tetap diukur untuk informasi debug. Titik awal, arah rute, dan jeda patroli bervariasi. Zona patroli mengikuti bentuk rumah: ruang tamu, kantor/perpustakaan, ruang koleksi/galeri, serta penghubung pada estate. Ketika satu penjaga mendeteksi pemain, penjaga lain menerima laporan dan mencari di titik berbeda sekitar posisi terakhir yang diketahui. Laporan tidak memberi posisi pemain yang sudah berpindah tanpa terlihat.
+Setiap misi memilih satu hingga empat makhluk berbeda: The Warden, The Hare, The Glutton, dan The Crawler. Semua tampil sebagai siluet hitam basah dengan mata merah menyala dan geraman yang terdengar dari dekat. Kerucut pandang di lantai disembunyikan agar monster tetap menakutkan; F1 menampilkannya lagi untuk penjelasan AI. Jumlah penjaga mengikuti level. Luas interior bebas berjalan tetap diukur untuk informasi debug. Titik awal, arah rute, dan jeda patroli bervariasi. Zona patroli mengikuti bentuk rumah: ruang tamu, kantor/perpustakaan, ruang koleksi/galeri, serta penghubung pada estate. Ketika satu penjaga mendeteksi pemain, penjaga lain menerima laporan dan mencari di titik berbeda sekitar posisi terakhir yang diketahui. Laporan tidak memberi posisi pemain yang sudah berpindah tanpa terlihat.
 
 Setiap penjaga punya rute keliling yang menjaga jarak dari titik ambil target (3,5 m di level 1, 3 m di level 2–3, 2,5 m di level 4–6). Setiap dua atau tiga putaran, penjaga sekali melewati titik intip di dekat target lalu kembali ke rutenya, sehingga ada jendela aman untuk mengambil barang. Di pos jaga pada rute keliling, penjaga kadang berhenti dan melihat sekeliling. Selama istirahat, kerucut pandangnya lebih pendek dan sempit, dan penyadarannya lebih lambat. Penjaga tidak beristirahat di titik intip. Lama dan seringnya istirahat berkurang di level yang lebih tinggi.
 
@@ -58,12 +61,13 @@ Saat kehilangan jejak, penjaga menuju lokasi bukti lalu mencari sebelum kembali 
 | Tombol | Aksi |
 | --- | --- |
 | WASD / tombol arah | Bergerak |
-| Mouse | Menoleh saat first person |
+| Mouse | Menoleh |
 | Shift | Berlari |
 | Ctrl / C | Mengendap |
 | E | Mengambil target terdekat |
 | Q | Menjatuhkan kaleng distraksi |
 | F | Masuk atau keluar tempat persembunyian |
+| T | Menyalakan / mematikan senter |
 | Esc | Jeda / lanjut |
 | R | Mengulang misi |
 | F1 | Menampilkan informasi perilaku penjaga |
@@ -80,4 +84,8 @@ Semua rekor disimpan **lokal** di perangkat (`PlayerPrefs`, kunci `SneakHouse.Sc
 
 ## Suasana
 
-Interior rumah dan taman memakai bentuk low-poly dengan warna hangat. Pepohonan dan kain bergerak, daun berguguran, kincir berputar, sprinkler menyiram, serta kupu-kupu beterbangan. Antarmuka menggunakan bahasa Inggris dan tipografi pixel.
+Permainan berlangsung pada malam hari: cahaya bulan biru redup, kabut tebal yang menipis saat kamera di menu, dan lampu rumah yang berdengung serta berkedip. Dinding dan lantai memakai tekstur plester kotor dan kayu tua dengan noda lembap dan jelaga dekat lantai (shader triplanar `SneakHouse/HorrorTriplanar`). Taman masih bergerak, tetapi kupu-kupu hilang dan suara burung diganti suara malam. Antarmuka berbahasa Inggris dengan palet kertas tua dan merah darah, judul memakai font Creepster, teks tetap tipografi pixel.
+
+Semua aset unduhan bersifat gratis (CC0, CC BY, atau OFL). Sumber, pembuat, dan lisensi tercatat di `Assets/StreamingAssets/Audio-Credits.txt`.
+
+Untuk mengambil cuplikan first person tanpa membuka editor: `Unity -batchmode -projectPath . -executeMethod SneakHouse.EditorTools.HorrorPreviewCapture.RunBatch` menyimpan gambar ke `Tests/screenshots/horror-*.png`.

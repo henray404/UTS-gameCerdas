@@ -72,6 +72,7 @@ namespace SneakHouse
             BestTime = Scores.BestTime(Level.Number);
             for (int i = 0; i < guards.Length; i++) guards[i].gameObject.SetActive(i < activeGuardCount);
             gameObject.AddComponent<MissionFlowUI>();
+            gameObject.AddComponent<HorrorDirector>();
             Message = "Collect all " + RequiredTargetCount + " items. Return to the entrance.";
             SetScreen(reopenLevels ? ScreenState.LevelSelect : reopenBriefing ? ScreenState.Briefing : ScreenState.MainMenu);
             reopenBriefing = reopenLevels = false;
@@ -161,7 +162,7 @@ namespace SneakHouse
             if (Phase == ScreenState.Playing) Elapsed += Time.deltaTime;
             if (messageUntil > 0 && Time.time > messageUntil)
             {
-                Message = Collected == RequiredTargetCount ? "All items collected. Return to the entrance." : "Watch the patrol. Running makes noise.";
+                Message = Collected == RequiredTargetCount ? "All relics taken. Get back to the entrance." : "Something is listening. Running makes noise.";
                 messageUntil = 0;
             }
         }
@@ -204,7 +205,7 @@ namespace SneakHouse
             }
             if (PersistRecords && win) PlayerPrefs.Save();
             SetScreen(ScreenState.Results);
-            Message = win ? "All items secured. You made it out." : "Caught by a guard. Try another route.";
+            Message = win ? "You made it out alive." : "Something caught you in the dark.";
         }
         public void Restart()
         {
@@ -254,7 +255,7 @@ namespace SneakHouse
                     Vector2 edge = new Vector2(w * .5f, h * .5f) + direction * reach;
                     badge = new Rect(edge.x - halfWidth, edge.y - halfHeight, halfWidth * 2, halfHeight * 2);
                 }
-                Rect(badge, new Color(.24f, .20f, .13f, .78f));
+                Rect(badge, new Color(.02f, .01f, .01f, .7f));
                 GUI.Label(badge, label, marker);
             }
         }

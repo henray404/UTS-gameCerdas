@@ -82,7 +82,7 @@ namespace SneakHouse
         {
             if (game.Phase == GameSession.ScreenState.Playing || game.Phase == GameSession.ScreenState.Paused) return;
             Styles();
-            Fill(new Rect(0, 0, UnityEngine.Screen.width, UnityEngine.Screen.height), new Color(.14f, .18f, .09f, .29f));
+            Fill(new Rect(0, 0, UnityEngine.Screen.width, UnityEngine.Screen.height), new Color(0, 0, 0, .45f));
             Matrix4x4 previous = GUI.matrix;
             float scale = Mathf.Min(UnityEngine.Screen.width / 1440f, UnityEngine.Screen.height / 900f);
             GUI.matrix = Matrix4x4.TRS(new Vector3((UnityEngine.Screen.width - 1440 * scale) / 2,
@@ -102,9 +102,11 @@ namespace SneakHouse
             if (showGuide) { Guide(); return; }
             if (showRecords) { Records(); return; }
             LowPolyUI.Plank(new Rect(470, 30, 500, 168));
-            int logoSize = heading.fontSize; heading.fontSize = 48;
-            LowPolyUI.Title(new Rect(490, 38, 460, 152), "SNEAK\nHOUSE", heading, true);
-            heading.fontSize = logoSize;
+            int logoSize = heading.fontSize; Font logoFont = heading.font;
+            if (HorrorDirector.TitleFont != null) { heading.font = HorrorDirector.TitleFont; heading.fontSize = 60; }
+            else heading.fontSize = 48;
+            LowPolyUI.Title(new Rect(490, 38, 460, 152), "HOLLOW\nHOUSE", heading, true);
+            heading.fontSize = logoSize; heading.font = logoFont;
             int done = game.Progress.HighestCompleted, next = Mathf.Clamp(game.Progress.HighestUnlocked, 1, CampaignLevels.Count);
             Card(new Rect(170, 236, 440, 584));
             Text(200, 256, 380, 30, "CAMPAIGN", small);
@@ -226,19 +228,19 @@ namespace SneakHouse
         {
             Card(new Rect(400, 80, 640, 740));
             Text(442, 120, 556, 80, "HOW TO PLAY", heading);
-            Text(460, 215, 520, 330, "WASD / Arrow   -   Move\nShift   -   Sprint (stamina)\nCtrl / C   -   Sneak\nE   -   Collect\nQ   -   Drop can\nF   -   Hide / leave\nEsc   -   Pause\nF1   -   AI Debug", body);
-            Text(450, 552, 540, 36, "Chased: first person / Mouse: look", small);
-            Text(450, 598, 540, 48, "Collect marked items and escape to unlock the next level.", small);
-            if (Button(new Rect(490, 654, 460, 52), "Music Credits", false)) showCredits = true;
+            Text(460, 215, 520, 330, "WASD / Arrow   -   Move\nShift   -   Sprint (stamina)\nCtrl / C   -   Sneak\nE   -   Take relic\nQ   -   Drop can\nF   -   Hide / leave\nT   -   Flashlight\nEsc   -   Pause\nF1   -   AI Debug", body);
+            Text(450, 552, 540, 36, "First person   /   Mouse: look", small);
+            Text(450, 598, 540, 48, "Take the cursed relics and escape to unlock the next night.", small);
+            if (Button(new Rect(490, 654, 460, 52), "Credits", false)) showCredits = true;
             if (Button(new Rect(490, 726, 460, 60), "Back", false)) showGuide = false;
         }
         private void Credits()
         {
             Card(new Rect(330, 130, 780, 640));
-            Text(380, 166, 680, 80, "MUSIC CREDITS", heading);
-            Text(380, 276, 680, 132, "Sneaky Snitch\nKevin MacLeod (incompetech.com)\nCC BY 4.0\ncreativecommons.org/licenses/by/4.0/", small);
-            Text(380, 440, 680, 114, "Pursuit / Vicegrip of Pursuit\nSudocolon - OpenGameArt.org\nCC0 / Public domain", small);
-            Text(380, 566, 680, 52, "Playback edits and full asset credits: Audio-Credits.txt", small);
+            Text(380, 166, 680, 80, "CREDITS", heading);
+            Text(380, 276, 680, 132, "Shadowlands 5 - Antechamber / Darkling\nKevin MacLeod (incompetech.com)\nCC BY 4.0\ncreativecommons.org/licenses/by/4.0/", small);
+            Text(380, 440, 680, 114, "Spooky sounds: bart (OpenGameArt.org), CC BY 3.0\nMusic box: Kim Lightyear, CC BY 3.0\nOther sounds, textures, props: CC0", small);
+            Text(380, 566, 680, 52, "Full list and edits: StreamingAssets/Audio-Credits.txt", small);
             if (Button(new Rect(490, 646, 460, 72), "Back", false)) showCredits = false;
         }
         private void OpenLevels()
@@ -255,9 +257,9 @@ namespace SneakHouse
             Text(368, 118, 704, 76, title, heading);
             heading.fontSize = titleSize;
             Text(380, 194, 680, 46, level.MapName, body);
-            Text(380, 248, 680, 60, "Collect " + game.RequiredTargetCount + (game.RequiredTargetCount == 1 ? " marked item." : " marked items.") + " Return to the entrance.", body);
+            Text(380, 248, 680, 60, "Take " + game.RequiredTargetCount + (game.RequiredTargetCount == 1 ? " cursed relic." : " cursed relics.") + " Escape through the entrance.", body);
             RequiredPortraits();
-            Text(380, 504, 680, 38, level.Guards + " guards   /   " + level.Cans + " cans   /   " + FormatTime(level.ReferenceSeconds) + " pace reference", small);
+            Text(380, 504, 680, 38, level.Guards + (level.Guards == 1 ? " monster   /   " : " monsters   /   ") + level.Cans + " cans   /   " + FormatTime(level.ReferenceSeconds) + " pace reference", small);
             Text(390, 552, 660, 76, level.TacticalHint, small);
             if (!game.MissionReady) Text(380, 624, 680, 42, game.MissionIssue, small);
             bool enabled = GUI.enabled;
@@ -286,7 +288,7 @@ namespace SneakHouse
             bool finalWin = game.Won && game.Level.Number == CampaignLevels.Count;
             Card(new Rect(370, 50, 700, 800));
             int size = heading.fontSize; heading.fontSize = 30;
-            Text(408, 86, 624, 76, finalWin ? "CAMPAIGN COMPLETE" : game.Won ? "MISSION COMPLETE" : "CAUGHT", heading);
+            Text(408, 86, 624, 76, finalWin ? "YOU SURVIVED" : game.Won ? "YOU ESCAPED" : "THEY GOT YOU", heading);
             heading.fontSize = size;
             Text(420, 162, 600, 36, "Level " + game.Level.Number + "  /  " + game.Level.Name, small);
             LowPolyUI.Inset(new Rect(430, 206, 580, 132));
@@ -305,7 +307,7 @@ namespace SneakHouse
             }
             string progress = finalWin ? "All " + CampaignLevels.Count + " contracts complete. Every level is replayable." :
                 game.NewlyUnlocked ? "Level " + (game.Level.Number + 1) + " unlocked." :
-                game.Won ? "Escape complete. Choose your next contract." : "Caught runs are not ranked. Try another route.";
+                game.Won ? "You escaped. For now." : "The dead keep no records. Try another route.";
             Text(430, 588, 580, 34, progress, small);
             bool next = game.Won && !finalWin;
             if (next && Button(new Rect(430, 630, 580, 62), "Next Level")) game.StartLevel(game.Level.Number + 1);

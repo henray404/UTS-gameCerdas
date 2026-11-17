@@ -6,8 +6,10 @@ namespace SneakHouse
     public class LootTarget : MonoBehaviour
     {
         public string displayName;
-        public string Label => displayName == "Drive rahasia" ? "Data Drive" :
-            displayName == "Jam tangan" ? "Watch" : displayName == "Konsol game" ? "Game Console" : displayName;
+        public string Label => displayName == "Drive rahasia" ? "Cursed Drive" :
+            displayName == "Jam tangan" ? "Grave Watch" : displayName == "Konsol game" ? "Ghost Console" : displayName;
+        // Spectral cyan reads well in the dark and never looks like the monsters' red eyes.
+        private static readonly Color Spirit = new Color(.55f, .9f, .82f), SpiritGlow = new Color(.18f, .5f, .44f);
         public Transform visual;
         public bool Collected { get; private set; }
         private Vector3 rest;
@@ -46,7 +48,7 @@ namespace SneakHouse
             lightObject.transform.localPosition = Vector3.up * .40f;
             glow = lightObject.AddComponent<Light>();
             glow.type = LightType.Point;
-            glow.color = new Color(1f, .82f, .43f);
+            glow.color = new Color(.5f, 1f, .85f);
             glow.range = 1.7f;
             glow.intensity = 1.1f;
             glow.shadows = LightShadows.None;
@@ -78,20 +80,20 @@ namespace SneakHouse
         {
             if (markerMaterial != null) return markerMaterial;
             markerMaterial = new Material(Shader.Find("Standard"));
-            markerMaterial.color = new Color(.82f, .64f, .28f);
+            markerMaterial.color = Spirit;
             markerMaterial.SetFloat("_Glossiness", .05f);
             markerMaterial.EnableKeyword("_EMISSION");
-            markerMaterial.SetColor("_EmissionColor", new Color(.55f, .38f, .12f));
+            markerMaterial.SetColor("_EmissionColor", SpiritGlow);
             return markerMaterial;
         }
         private static Material OutlineMaterial()
         {
             Material material = new Material(Shader.Find("Standard"));
-            material.color = new Color(.82f, .64f, .28f);
+            material.color = Spirit;
             material.SetFloat("_Glossiness", 0);
             material.SetFloat("_Cull", 1);
             material.EnableKeyword("_EMISSION");
-            material.SetColor("_EmissionColor", new Color(.55f, .38f, .12f));
+            material.SetColor("_EmissionColor", SpiritGlow);
             return material;
         }
         private void Update()
@@ -121,7 +123,7 @@ namespace SneakHouse
                 if (show)
                 {
                     ring.transform.localScale = Vector3.one * (1f + .22f * pulse);
-                    ring.startColor = ring.endColor = new Color(.82f, .64f, .28f, .35f + .35f * pulse);
+                    ring.startColor = ring.endColor = new Color(Spirit.r, Spirit.g, Spirit.b, .35f + .35f * pulse);
                 }
             }
             if (visual != null && show) visual.localPosition = rest + Vector3.up * Mathf.Sin(time * 2.4f) * .025f;

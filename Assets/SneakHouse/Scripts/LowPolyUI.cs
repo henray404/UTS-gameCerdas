@@ -5,8 +5,8 @@ namespace SneakHouse
     // Small, cached raster shapes; all screens share the same materials and cut corners.
     public static class LowPolyUI
     {
-        public static readonly Color Cream = Hex("F3E5BF"), Ink = Hex("3E3528"), Muted = Hex("5D6045");
-        public static readonly Color Green = Hex("405832"), Gold = Hex("C49A4D"), Red = Hex("994C36");
+        public static readonly Color Cream = Hex("D9D2C0"), Ink = Hex("1C1714"), Muted = Hex("4E4842");
+        public static readonly Color Green = Hex("4F5E3A"), Gold = Hex("8E7A4C"), Red = Hex("B3261E"), Blood = Hex("6E1410");
         private static GUIStyle board, shadow, plank, inset;
         private static Texture2D drive, watch, console;
         private static Texture2D[] ornaments;
@@ -40,23 +40,23 @@ namespace SneakHouse
             if (kind == 3) Cut(p, s, 0, 10, new Color(.10f, .08f, .04f, .28f));
             else
             {
-                Cut(p, s, 0, 10, Hex("493324"));
-                Cut(p, s, 2, 9, kind == 0 ? Hex("9D6A3D") : Color.Lerp(face, Color.black, .40f));
-                Paint(p, s, kind == 0 ? Hex("C39358") : Color.Lerp(face, Color.white, .26f),
+                Cut(p, s, 0, 10, Hex("0D0A09"));
+                Cut(p, s, 2, 9, kind == 0 ? Hex("2A2220") : Color.Lerp(face, Color.black, .40f));
+                Paint(p, s, kind == 0 ? Hex("3B322D") : Color.Lerp(face, Color.white, .26f),
                     new Vector2(11, 2), new Vector2(117, 2), new Vector2(126, 11), new Vector2(115, 18), new Vector2(13, 18), new Vector2(2, 11));
-                Paint(p, s, kind == 0 ? Hex("70492F") : Color.Lerp(face, Color.black, .25f),
+                Paint(p, s, kind == 0 ? Hex("171210") : Color.Lerp(face, Color.black, .25f),
                     new Vector2(126, 11), new Vector2(126, 117), new Vector2(117, 126), new Vector2(110, 114), new Vector2(111, 16));
                 int edge = kind == 0 ? 15 : 7;
-                Cut(p, s, edge, kind == 0 ? 4 : 7, kind == 0 ? Hex("CFBA8B") : face);
-                Cut(p, s, edge + 2, 4, kind == 0 ? Hex("E8D7AA") : face);
+                Cut(p, s, edge, kind == 0 ? 4 : 7, kind == 0 ? Hex("8B8270") : face);
+                Cut(p, s, edge + 2, 4, kind == 0 ? Hex("BDB39C") : face);
                 if (kind == 0)
                 {
-                    Paint(p, s, Hex("E0CD9F"), new Vector2(17, 80), new Vector2(73, 111), new Vector2(17, 111));
-                    Paint(p, s, Hex("EDDEB8"), new Vector2(75, 17), new Vector2(111, 17), new Vector2(111, 54));
+                    Paint(p, s, Hex("B4AA92"), new Vector2(17, 80), new Vector2(73, 111), new Vector2(17, 111));
+                    Paint(p, s, Hex("C6BDA7"), new Vector2(75, 17), new Vector2(111, 17), new Vector2(111, 54));
                     foreach (Vector2 bolt in new[] { new Vector2(9, 9), new Vector2(119, 9), new Vector2(9, 119), new Vector2(119, 119) })
                     {
-                        Paint(p, s, Hex("67462D"), bolt + new Vector2(-3, -2), bolt + new Vector2(2, -3), bolt + new Vector2(3, 2), bolt + new Vector2(-2, 3));
-                        Paint(p, s, Hex("CEA45F"), bolt + new Vector2(-2, -2), bolt + new Vector2(1, -2), bolt + new Vector2(1, 0), bolt + new Vector2(-2, 0));
+                        Paint(p, s, Hex("161110"), bolt + new Vector2(-3, -2), bolt + new Vector2(2, -3), bolt + new Vector2(3, 2), bolt + new Vector2(-2, 3));
+                        Paint(p, s, Hex("6B5E4C"), bolt + new Vector2(-2, -2), bolt + new Vector2(1, -2), bolt + new Vector2(1, 0), bolt + new Vector2(-2, 0));
                     }
                 }
                 else
@@ -80,8 +80,8 @@ namespace SneakHouse
             if (board != null) return;
             board = Surface(Texture(0, Cream), 23);
             shadow = Surface(Texture(3, Cream), 20);
-            plank = Surface(Texture(1, Hex("775033")), 18);
-            inset = Surface(Texture(1, Hex("D8C69A")), 15);
+            plank = Surface(Texture(1, Hex("3A1210")), 18);
+            inset = Surface(Texture(1, Hex("A69C86")), 15);
         }
         public static void Fill(Rect rect, Color colour)
         {
@@ -97,7 +97,7 @@ namespace SneakHouse
         public static void Inset(Rect rect) { Initialize(); Draw(inset, rect); }
         public static GUIStyle ButtonStyle(Font font, int size, bool primary)
         {
-            Color face = primary ? Green : Hex("D1AF73");
+            Color face = primary ? Blood : Hex("8F8676");
             GUIStyle style = new GUIStyle(GUI.skin.button)
             {
                 font = font, fontSize = size, alignment = TextAnchor.MiddleCenter,
@@ -118,9 +118,9 @@ namespace SneakHouse
         public static void Title(Rect rect, string label, GUIStyle style, bool light = false)
         {
             Color saved = style.normal.textColor;
-            foreach (GUIStyleState state in new[] { style.normal, style.hover, style.active, style.focused }) state.textColor = Hex("5A3D28");
+            foreach (GUIStyleState state in new[] { style.normal, style.hover, style.active, style.focused }) state.textColor = Color.black;
             GUI.Label(new Rect(rect.x + 2, rect.y + 4, rect.width, rect.height), label, style);
-            foreach (GUIStyleState state in new[] { style.normal, style.hover, style.active, style.focused }) state.textColor = light ? Cream : Green;
+            foreach (GUIStyleState state in new[] { style.normal, style.hover, style.active, style.focused }) state.textColor = light ? Cream : Blood;
             GUI.Label(rect, label, style);
             foreach (GUIStyleState state in new[] { style.normal, style.hover, style.active, style.focused }) state.textColor = saved;
         }

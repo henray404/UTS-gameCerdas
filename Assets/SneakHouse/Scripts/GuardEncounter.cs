@@ -217,7 +217,7 @@ namespace SneakHouse
                 visual.name = "Visual / " + character.displayName;
                 guard.acting.animator = visual.GetComponent<Animator>();
                 guard.acting.walkReferenceSpeed = 1.4f; guard.acting.runReferenceSpeed = 3.2f;
-                guard.characterName = character.displayName; guard.eyeHeight = character.eyeHeight;
+                guard.characterName = MonsterSkin.NameFor(character.displayName); guard.eyeHeight = character.eyeHeight;
                 guard.name = "Guard 0" + (i + 1) + " / " + character.displayName + " / " + guard.patrolZone;
                 guard.patrolPause = assignment.pause;
                 Transform[] route = zone.route;

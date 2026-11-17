@@ -8,6 +8,7 @@ namespace SneakHouse
         private Mesh mesh;
         private Material material;
         private float nextUpdate;
+        private MeshRenderer view;
         private void Start()
         {
             GameObject display = new GameObject("Vision footprint"); display.transform.SetParent(transform, false);
@@ -15,7 +16,7 @@ namespace SneakHouse
             MeshFilter filter = display.AddComponent<MeshFilter>();
             mesh = new Mesh { name = "Guard vision clipped by walls" }; filter.sharedMesh = mesh;
             material = new Material(Shader.Find("Sprites/Default"));
-            display.AddComponent<MeshRenderer>().sharedMaterial = material;
+            view = display.AddComponent<MeshRenderer>(); view.sharedMaterial = material;
             SetAlert(0, false);
         }
         public void SetAlert(float suspicion, bool chase)
@@ -24,6 +25,8 @@ namespace SneakHouse
         }
         private void LateUpdate()
         {
+            // In first-person horror the cones would spoil the monsters; F1 debug still shows them.
+            if (view != null) view.enabled = !HorrorDirector.Night || (GameSession.Instance != null && GameSession.Instance.DebugMode);
             if (mesh == null || Time.time < nextUpdate) return; nextUpdate = Time.time + .08f;
             const int segments = 28;
             Vector3[] vertices = new Vector3[segments + 2]; int[] triangles = new int[segments * 3];

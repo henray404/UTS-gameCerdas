@@ -20,13 +20,18 @@ namespace SneakHouse
         public float sneakEyeHeight = 1.13f;
         [Range(0, .2f)] public float eyeForwardOffset = .08f;
         public FirstPersonRoomShell roomShell;
+        [Header("Horror first person")]
+        [Tooltip("Stay in first person for the whole mission, including while hidden.")]
+        public bool alwaysFirstPerson = true;
+        [Min(.15f)] public float missionEnterDuration = 1.6f;
+        public float hiddenEyeHeight = .62f;
 
         public bool IsFirstPerson { get; private set; }
         public float Transition { get; private set; }
         public float ViewBlend => Mathf.SmoothStep(0, 1, Transition);
         public float Yaw { get; private set; }
         public float Pitch { get; private set; }
-        public bool FirstPersonControls => isActiveAndEnabled && player != null && !player.IsHidden &&
+        public bool FirstPersonControls => isActiveAndEnabled && player != null && (alwaysFirstPerson || !player.IsHidden) &&
             GameSession.Instance != null && GameSession.Instance.Phase == GameSession.ScreenState.Playing &&
             (IsFirstPerson || Transition > .5f);
         public Vector3 PlanarForward => Quaternion.Euler(0, Yaw, 0) * Vector3.forward;
@@ -42,7 +47,7 @@ namespace SneakHouse
         private bool[] originalForcedOff;
         private bool actorHidden, captured;
         private Vector3 lastVisibleEye;
-        private bool eyeCached;
+        private bool eyeCached, wasChasing;
 
         private void Awake()
         {
@@ -77,12 +82,14 @@ namespace SneakHouse
         {
             GameSession game = GameSession.Instance;
             if (game == null || game.Phase != GameSession.ScreenState.Playing || player == null) return;
-            if (player.IsHidden) { calmTime = 0; SetFirstPerson(false); return; }
+            if (player.IsHidden) { calmTime = 0; wasChasing = false; SetFirstPerson(alwaysFirstPerson); return; }
             bool chasing = false;
             foreach (GuardBrain guard in game.guards)
                 if (guard != null && guard.isActiveAndEnabled && guard.State == GuardBrain.Mode.Chase)
                 { chasing = true; break; }
-            if (chasing) { calmTime = 0; SetFirstPerson(true); }
+            if (chasing && !wasChasing && alwaysFirstPerson && IsFirstPerson) game.Notify("It has seen you. RUN!");
+            wasChasing = chasing;
+            if (chasing || alwaysFirstPerson) { calmTime = 0; SetFirstPerson(true); }
             else
             {
                 calmTime += Mathf.Max(0, delta);
@@ -97,7 +104,8 @@ namespace SneakHouse
             if (enabled && Transition <= .001f)
             {
                 Yaw = player.transform.eulerAngles.y; Pitch = 0;
-                GameSession.Instance.Notify("Chased! Mouse to look. WASD to move.");
+                GameSession.Instance.Notify(alwaysFirstPerson ? "Mouse to look. [T] Flashlight. Stay quiet."
+                    : "Chased! Mouse to look. WASD to move.");
             }
             IsFirstPerson = enabled;
         }
@@ -126,7 +134,7 @@ namespace SneakHouse
         public void AdvanceView(float delta)
         {
             if (view == null || player == null) return;
-            float duration = IsFirstPerson ? enterDuration : exitDuration;
+            float duration = IsFirstPerson ? (alwaysFirstPerson ? missionEnterDuration : enterDuration) : exitDuration;
             Transition = Mathf.MoveTowards(Transition, IsFirstPerson ? 1 : 0, Mathf.Max(0, delta) / Mathf.Max(.15f, duration));
             float weight = ViewBlend;
             if (weight <= 0)
@@ -141,6 +149,7 @@ namespace SneakHouse
                 + PlanarForward * eyeForwardOffset;
             // Hiding teleports the avatar into a prop; the return flight must not jump with it.
             if (!player.IsHidden) { lastVisibleEye = eye; eyeCached = true; }
+            else if (alwaysFirstPerson) eye = player.transform.position + Vector3.up * hiddenEyeHeight; // peek out of the hiding spot
             else if (eyeCached) eye = lastVisibleEye;
             // Blend pitch and yaw separately so turning 180 degrees never rolls the horizon.
             Vector3 topAngles = overheadRotation.eulerAngles;
@@ -213,9 +222,9 @@ namespace SneakHouse
         {
             if (!FirstPersonControls || ViewBlend < .7f) return;
             Color previous = GUI.color;
-            GUI.color = new Color(.18f, .14f, .10f, .85f);
+            GUI.color = new Color(0, 0, 0, .6f);
             GUI.DrawTexture(new Rect(Screen.width * .5f - 3, Screen.height * .5f - 3, 6, 6), Texture2D.whiteTexture);
-            GUI.color = new Color(.96f, .89f, .70f);
+            GUI.color = new Color(.85f, .82f, .78f, .55f);
             GUI.DrawTexture(new Rect(Screen.width * .5f - 1, Screen.height * .5f - 1, 2, 2), Texture2D.whiteTexture);
             GUI.color = previous;
         }

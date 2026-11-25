@@ -25,7 +25,8 @@ namespace SneakHouseEditor
                 Character("bogo","Bogo","Actors/01_bogo_guard",1.8f),
                 Character("judy","Judy","PortraitCast/03_judy_guard",1.65f),
                 Character("clawhauser","Clawhauser","Actors/02_clawhauser_guard",1.8f),
-                Character("spike","Spike","Actors/04_spike_guard",1.55f)
+                Character("spike","Spike","Actors/04_spike_guard",1.55f),
+                Character("sentrybull","Sentry Bull","Actors/sentry_bull",2.0f) // Art/Blender/scripts/build_sentry_bull.py --unity
             };
             GuardEncounter encounter = game.GetComponent<GuardEncounter>();
             if (encounter == null) encounter = Undo.AddComponent<GuardEncounter>(game.gameObject);

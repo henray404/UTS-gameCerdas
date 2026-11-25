@@ -686,8 +686,8 @@ MonoBehaviour:
   - id: bogo
     displayName: Bogo
     visualPrefab: {fileID: 8530687333851213218, guid: f6aa7d4103dbfd84f951e0c25c9361ba, type: 3}
-    eyeHeight: 1.4091542
-    bodyHeight: 1.8000004
+    eyeHeight: 1.3556805
+    bodyHeight: 1.8
   - id: judy
     displayName: Judy
     visualPrefab: {fileID: 1564635283459517766, guid: d17c58273b6b81d4bbe1ec29f9375009, type: 3}
@@ -703,6 +703,11 @@ MonoBehaviour:
     visualPrefab: {fileID: 2938309102783939090, guid: 65c71afce84289743aca26daf6dc1e6e, type: 3}
     eyeHeight: 1.3378706
     bodyHeight: 1.5500007
+  - id: sentrybull
+    displayName: Sentry Bull
+    visualPrefab: {fileID: 1773970542529351635, guid: fb0f5a345d2574466966a941ab448243, type: 3}
+    eyeHeight: 1.5884466
+    bodyHeight: 2.0000007
   zones:
   - guard: {fileID: 674143998}
     route:

@@ -17,7 +17,11 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from hunter_log_summary import ACTIONS, greedy_policy, parse, wilson  # noqa: E402
 
-METHODS = [("baseline", "FSM (baseline)"), ("eval", "Q-learning"), ("ppo-eval", "PPO")]
+METHODS = [("baseline", "FSM (baseline)"), ("eval", "Q-learning"), ("eval-qopt", "Q-learning (tabel awal optimis)"),
+           ("golastknown", "Hunter selalu GoLastKnown (heuristik)"),
+           ("ppo-eval", "PPO deterministik (mode ML-Agents)"), ("ppo-stoch", "PPO stokastik (mode ML-Agents)")]
+# Comparison runs: left out of the table entirely when they were not evaluated.
+OPTIONAL = {"eval-qopt", "golastknown", "ppo-stoch"}
 ALPHA = 0.05
 
 
@@ -74,6 +78,9 @@ def main():
     ap.add_argument("--levels", nargs="+", type=int, default=[1, 3, 6])
     ap.add_argument("--out", required=True)
     ap.add_argument("--csv-dir", required=True)
+    ap.add_argument("--notes", help="hand-written analysis (markdown) inserted after the introduction")
+    ap.add_argument("--extra-table", action="append", default=[],
+                    help="label=path of another Q-table to report visited states for (e.g. the optimistic run)")
     args = ap.parse_args()
     os.makedirs(args.csv_dir, exist_ok=True)
 
@@ -92,6 +99,9 @@ def main():
           f"Evaluasi tanpa belajar (epsilon 0). Uji: dua proporsi dua sisi terhadap FSM di level yang sama, "
           f"CI 95% Wilson, plus p terkoreksi Holm untuk semua perbandingan sekaligus. "
           f"Selisih dengan p ≥ {ALPHA} ditulis **belum signifikan**.", ""]
+
+    if args.notes and os.path.exists(args.notes):
+        md += [open(args.notes).read().rstrip(), ""]
 
     # Catch-rate table and comparisons.
     md += ["## Catch rate per level × metode", "",
@@ -113,7 +123,8 @@ def main():
         for key, name in METHODS:
             eps = data.get((key, level))
             if not eps:
-                md.append(f"| {level} | {name} | – | – | – | – | – | – | – | – | belum dijalankan |")
+                if key not in OPTIONAL:
+                    md.append(f"| {level} | {name} | – | – | – | – | – | – | – | – | belum dijalankan |")
                 continue
             n, h = len(eps), sum(e["caught"] for e in eps)
             lo, hi = wilson(h, n)
@@ -193,6 +204,11 @@ def main():
             else:
                 md.append(f"| {name} | {len(cur)}/48 | – |")
             prev = cur
+    for spec in args.extra_table:
+        label, path = spec.split("=", 1)
+        if os.path.exists(path):
+            trained, rows = greedy_policy(path)
+            md.append(f"- {label}: {len(rows)}/48 state terkunjungi, {trained} episode tersimpan di tabel.")
     if "ppo" in spans:
         md.append(f"- PPO: waktu {spans['ppo'] / 3600:.1f} jam (lihat kurva di TensorBoard, `results/<run-id>`).")
     md.append("")
@@ -211,7 +227,7 @@ def main():
         if verdict and "STOP" in verdict[-1]:
             issues.append(f"PPO `{os.path.basename(watch)[:-10]}` dihentikan aturan 30k step: {verdict[-1][9:]}. "
                           "Hasil PPO di atas memakai model terakhir yang tersimpan.")
-    missing = [f"L{lv} {name}" for lv in args.levels for key, name in METHODS if (key, lv) not in data]
+    missing = [f"L{lv} {name}" for lv in args.levels for key, name in METHODS if (key, lv) not in data and key not in OPTIONAL]
     if missing:
         issues.append("Belum ada log untuk: " + ", ".join(missing) + ".")
     issues.append("Waktu Hunter < 4 m dari pintu keluar belum tercatat di log `HUNTER`, jadi batas camping 25% belum bisa diuji "

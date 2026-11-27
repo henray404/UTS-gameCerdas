@@ -43,7 +43,12 @@ namespace SneakHouse
         public static CampaignLevel SelectedLevel => CampaignLevels.Get(selectedLevel);
         // Set only by Hunter training/eval runs (which never save records) so they can play any level on a fresh profile.
         public static bool UnlockAll;
+        // Hunter training/eval only. SoloHunter keeps guards[0] alone; SeedOffset shifts every layout-seed reader together.
+        public static bool SoloHunter;
+        public static int SeedOffset;
+        public static int LayoutSeed => SelectedLevel.LayoutSeed + SeedOffset;
         public CampaignLevel Level => SelectedLevel;
+        public int LevelGuardCount => SoloHunter ? 1 : Level.Guards;
         public CampaignProgress Progress { get; private set; }
         public bool NewlyUnlocked { get; private set; }
         public int RequiredTargetCount => Level.TargetCount;
@@ -82,7 +87,7 @@ namespace SneakHouse
         // Unity objects are configured in place before their Awake and the NavMesh build.
         public void ApplyLevelConfiguration()
         {
-            activeGuardCount = Level.Guards; targetTime = Level.ReferenceSeconds;
+            activeGuardCount = LevelGuardCount; targetTime = Level.ReferenceSeconds;
             for (int i = 0; i < targets.Length; i++) targets[i].gameObject.SetActive(IsRequiredTarget(targets[i]));
             for (int i = 0; i < guards.Length; i++)
             {

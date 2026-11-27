@@ -34,7 +34,7 @@ namespace SneakHouse
             { originalTargets[i] = rooms[i].target.transform.position; originalRotations[i] = rooms[i].target.transform.rotation; }
             originalHideRoot = deskHiding.transform.position; originalHideRotation = deskHiding.transform.rotation;
             originalHideAnchor = deskHiding.anchor.position; originalHideApproach = deskHiding.Approach;
-            CurrentSeed = GameSession.SelectedLevel.LayoutSeed;
+            CurrentSeed = GameSession.LayoutSeed;
             if (!Generate(CurrentSeed)) UseFallback("Invalid room catalogue");
         }
         public int[] ChoicesForSeed(int seed)

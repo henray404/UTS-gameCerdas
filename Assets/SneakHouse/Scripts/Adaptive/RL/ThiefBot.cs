@@ -10,6 +10,9 @@ namespace SneakHouse
     public class ThiefBot : MonoBehaviour
     {
         public static bool Enabled;
+        // -thiefbot-skill 0..1; -1 keeps the original ThiefStyle.Random behaviour.
+        public static float Skill = -1;
+        public const float HearRadius = 6, ThreatMemory = 6, RouteClearance = 3;
         public ThiefStyle style = ThiefStyle.Default;
         public bool randomizeStyle = true;
         [Min(1)] public float hidingSearchRadius = 8;
@@ -22,7 +25,9 @@ namespace SneakHouse
         private Vector3 pathGoal;
         private int corner;
         private float repathAt, sinceThreat = 99;
-        private bool wasSpotted, guardClose, prefersHiding, wantsCan;
+        private bool wasSpotted, guardClose, prefersHiding, wantsCan, wasOnRoute, wantsWait;
+        private Vector3 threatAt;
+        private float threatSeen = -100, waited;
         private ThiefIntent intent;
         private System.Random rng;
         private ExtractionZone exit;
@@ -34,6 +39,8 @@ namespace SneakHouse
             // Hunter training needs the bot too; read both flags here because BeforeSceneLoad order between classes is undefined.
             string[] args = System.Environment.GetCommandLineArgs();
             Enabled = HunterArgs.Has(args, "-thiefbot") || System.Array.Exists(HunterDecision.LoopFlags, flag => HunterArgs.Has(args, flag));
+            float skill = HunterArgs.Float(args, "-thiefbot-skill", -1);
+            Skill = skill < 0 ? -1 : Mathf.Clamp01(skill);
             SceneManager.sceneLoaded -= Attach; SceneManager.sceneLoaded += Attach;
         }
         private static void Attach(Scene scene, LoadSceneMode mode)
@@ -45,7 +52,7 @@ namespace SneakHouse
         {
             motor = GetComponent<PlayerMotor>(); controller = GetComponent<CharacterController>(); path = new NavMeshPath();
             rng = new System.Random(System.Environment.TickCount);
-            if (randomizeStyle) style = ThiefStyle.Random(rng);
+            if (randomizeStyle) style = Skill >= 0 ? ThiefStyle.ForSkill(Skill, rng) : ThiefStyle.Random(rng);
         }
         private void OnDisable() { if (motor != null) motor.externalControl = false; }
         private void Update()
@@ -72,6 +79,10 @@ namespace SneakHouse
                 if (guard == null || !guard.isActiveAndEnabled) continue;
                 if (guard.State == GuardBrain.Mode.Chase || (guard.CanSeePlayer && guard.Suspicion > .5f)) spotted = true;
                 float distance = Vector3.Distance(transform.position, guard.transform.position);
+                // Skill only: remember where a guard was last seen or heard (footsteps within HearRadius).
+                if (style.Caution > 0 && (distance < HearRadius ||
+                    !Physics.Linecast(eye, guard.transform.position + Vector3.up * 1.1f, 1 << 8, QueryTriggerInteraction.Ignore)))
+                { threatAt = guard.transform.position; threatSeen = Time.time; }
                 if (distance >= nearest || Physics.Linecast(eye, guard.transform.position + Vector3.up * 1.1f, 1 << 8, QueryTriggerInteraction.Ignore)) continue;
                 nearest = distance;
                 // Walking into a patrolling guard (< .72 m) is an instant catch, so a visible guard this close is a threat too.
@@ -83,12 +94,40 @@ namespace SneakHouse
             if (close && !guardClose) wantsCan = rng.NextDouble() < style.CanChance;
             wasSpotted = spotted; guardClose = close;
             spot = NearestFreeSpot();
+            bool onRoute = ThreatFresh && RouteNear(threatAt);
+            if (onRoute && !wasOnRoute) wantsWait = rng.NextDouble() < style.Caution;
+            waited = onRoute ? waited + Time.deltaTime : 0;
+            wasOnRoute = onRoute;
             return new ThiefSense
             {
                 Hidden = motor.IsHidden, Spotted = spotted, NearestGuard = nearest, SinceThreat = sinceThreat,
                 TargetsLeft = NearestTarget(game) != null, HidingNearby = spot != null, Cans = motor.Distractions.Remaining,
-                PrefersHiding = prefersHiding, WantsCan = wantsCan
+                PrefersHiding = prefersHiding, WantsCan = wantsCan,
+                ThreatOnRoute = onRoute, WantsWait = wantsWait, WaitedSeconds = waited
             };
+        }
+        private bool ThreatFresh => style.Caution > 0 && Time.time - threatSeen < ThreatMemory;
+        // The remaining NavMesh corners (or the goal) pass within RouteClearance of the remembered guard.
+        private bool RouteNear(Vector3 point)
+        {
+            if (Flat(pathGoal - point) < RouteClearance) return true;
+            for (int i = corner; i < corners.Length; i++)
+                if (Flat(corners[i] - point) < RouteClearance) return true;
+            return false;
+        }
+        // Skill only: prefer a target away from the remembered guard; otherwise the nearest one.
+        private LootTarget ChooseTarget(GameSession game)
+        {
+            if (!ThreatFresh) return NearestTarget(game);
+            LootTarget best = null; float bestScore = float.PositiveInfinity;
+            foreach (LootTarget loot in game.targets)
+            {
+                if (loot == null || loot.Collected || !game.IsRequiredTarget(loot)) continue;
+                float score = Vector3.Distance(loot.transform.position, transform.position) +
+                              (Flat(loot.transform.position - threatAt) < 5 ? 15 * style.Caution : 0);
+                if (score < bestScore) { bestScore = score; best = loot; }
+            }
+            return best;
         }
         private void Act(GameSession game)
         {
@@ -100,13 +139,14 @@ namespace SneakHouse
                     if (Flat(spot.Approach - transform.position) < spot.interactionRadius * .8f && motor.Hiding.TryEnter()) return;
                     Steer(spot.Approach); break;
                 case ThiefGoal.Flee: Steer(FleePoint(game)); break;
+                case ThiefGoal.Wait: motor.Move(Vector3.zero, false, true, Time.deltaTime); break;
                 case ThiefGoal.Exit:
                     ExtractionZone zone = Exit();
                     Steer(zone != null ? zone.transform.position : transform.position); break;
                 default:
                     motor.RefreshLoot();
                     if (motor.NearestLoot != null && motor.TryInteract()) return;
-                    Steer(ApproachOf(NearestTarget(game), game)); break;
+                    Steer(ApproachOf(ChooseTarget(game), game)); break;
             }
             if (intent.DropCan && motor.Distractions.TryDrop()) wantsCan = false;
         }

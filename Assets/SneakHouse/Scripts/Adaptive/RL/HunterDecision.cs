@@ -29,7 +29,8 @@ namespace SneakHouse
         public static QLearningHunter Table { get; private set; }
         public static int CompletedEpisodes => Training ? Table.Episodes : evalEpisodes;
         private static int evalEpisodes;
-        private static string tableOverride, levelSpec;
+        private static string tableOverride, levelSpec, seedOffsetSpec, seedSpec;
+        public const float ExitRadius = 4;
         private static System.Random levelRng;
         public static string TablePath => tableOverride ?? Path.Combine(Application.persistentDataPath, TableFile);
 
@@ -47,6 +48,7 @@ namespace SneakHouse
         private HunterAction pendingAction;
         private float pendingReward, lastReacquire = -100, lastGiveUp = -100, restartAt;
         private bool timedOut;
+        private float exitTime; // game seconds this guard spent within ExitRadius of the extraction zone (camping check)
         private LootTarget nearestTarget;
         private HidingSpot nearestSpot;
         private readonly int[] histogram = new int[HunterContract.ActionCount];
@@ -68,10 +70,15 @@ namespace SneakHouse
             TargetEpisodes = HunterArgs.Int(args, "-hunter-episodes", 0);
             levelSpec = HunterArgs.Value(args, "-hunter-level");
             levelRng = new System.Random(System.Environment.TickCount);
+            GameSession.SoloHunter = Looping && HunterArgs.Has(args, "-hunter-solo");
+            seedOffsetSpec = HunterArgs.Value(args, "-hunter-seed-offset");
+            seedSpec = HunterArgs.Value(args, "-hunter-seed");
+            GameSession.SeedOffset = Looping ? HunterArgs.SeedOffset(seedOffsetSpec, seedSpec, levelRng) : 0;
             string table = HunterArgs.Value(args, "-hunter-table");
             tableOverride = table == null ? null : Path.GetFullPath(table);
             if (!Enabled) return;
             Table = LoadTable();
+            Table.EpsilonDecayEpisodes = Mathf.Max(1, HunterArgs.Int(args, "-hunter-eps-decay", QLearningHunter.DefaultEpsilonDecayEpisodes));
             if (Ppo) HunterAgent.PrepareAcademy();
             SceneManager.sceneLoaded -= Attach; SceneManager.sceneLoaded += Attach;
         }
@@ -216,6 +223,13 @@ namespace SneakHouse
         {
             GameSession game = GameSession.Instance;
             if (game == null) return;
+            if (game.Phase == GameSession.ScreenState.Playing && !ended)
+            {
+                ExtractionZone zone = Exit();
+                Vector3 offset = zone != null ? guard.transform.position - zone.transform.position : Vector3.positiveInfinity;
+                offset.y = 0;
+                if (offset.magnitude < ExitRadius) exitTime += Time.deltaTime;
+            }
             if (game.Finished && !ended) EndMission(game);
             if (!Looping) return;
             if (game.Phase == GameSession.ScreenState.Playing && !ended && game.Elapsed > MaxMissionSeconds)
@@ -238,6 +252,7 @@ namespace SneakHouse
         private static int NextLevel()
         {
             int level = HunterArgs.Level(levelSpec, 1, levelRng);
+            GameSession.SeedOffset = HunterArgs.SeedOffset(seedOffsetSpec, seedSpec, levelRng);
             return PpoTrain ? HunterAgent.CurriculumLevel(level) : level;
         }
         private void EndMission(GameSession game)
@@ -258,7 +273,9 @@ namespace SneakHouse
             else return;
             Debug.Log($"HUNTER episode={CompletedEpisodes} eps={(Training ? Table.Epsilon : 0):F2} level={game.Level.Number} won={game.Won} " +
                       $"hunterCaught={guard.CaughtPlayer} time={game.Elapsed:F1} decisions={Decisions} actions=[{string.Join(",", histogram)}]" +
-                      (timedOut ? " timeout=True" : ""));
+                      (timedOut ? " timeout=True" : "") +
+                      // New fields go last: ml/ parsers match the older fields in order.
+                      $" seed={GameSession.LayoutSeed} solo={GameSession.SoloHunter} skill={ThiefBot.Skill:F2} exitTime={exitTime:F1}");
         }
     }
 }

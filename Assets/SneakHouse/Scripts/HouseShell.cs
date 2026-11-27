@@ -46,7 +46,7 @@ namespace SneakHouse
                 for (int j = 0; j < routes[i].Length; j++) routes[i][j] = encounter.zones[i].route[j].position;
             }
             Camera view = Camera.main; cameraRotation = view.transform.rotation; cameraSize = view.orthographicSize;
-            CurrentSeed = GameSession.SelectedLevel.LayoutSeed;
+            CurrentSeed = GameSession.LayoutSeed;
             Generate(CurrentSeed);
         }
         public void Generate(int seed)
@@ -126,7 +126,7 @@ namespace SneakHouse
                 }
             }
             UsableArea = area; GameSession game = GetComponent<GameSession>();
-            game.activeGuardCount = game.Level.Guards;
+            game.activeGuardCount = game.LevelGuardCount;
             game.targetTime = game.Level.ReferenceSeconds;
             for (int i = 0; i < game.guards.Length; i++) game.guards[i].gameObject.SetActive(i < game.activeGuardCount);
         }

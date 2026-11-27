@@ -29,7 +29,7 @@ namespace SneakHouse
             {
                 string reason = interior.ValidationMessage;
                 // Keep the selected map. A smaller-house fallback would invalidate campaign difficulty.
-                int seed = GameSession.SelectedLevel.LayoutSeed;
+                int seed = GameSession.LayoutSeed;
                 for (int attempt = 1; attempt <= 32 && !interior.Validated; attempt++)
                 {
                     if (!interior.Generate(seed + attempt)) continue;

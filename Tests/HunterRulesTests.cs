@@ -137,7 +137,7 @@ public static class HunterRulesTests
         bool[] all = { true, true, true, true, true, true };
         Check(q.Best(0, all) == HunterAction.GoLastKnown, "Untrained table falls back to GoLastKnown");
         Check(q.Epsilon == 1 && Math.Abs(q.Epsilon - QLearningHunter.EpsilonStart) < 1e-6f, "Training starts fully exploring");
-        q.Episodes = QLearningHunter.EpsilonDecayEpisodes / 2;
+        q.Episodes = QLearningHunter.DefaultEpsilonDecayEpisodes / 2;
         Check(Math.Abs(q.Epsilon - .525f) < 1e-4f, "Epsilon decays linearly");
         q.Episodes = 10000;
         Check(q.Epsilon == QLearningHunter.EpsilonEnd, "Epsilon floor");
@@ -196,6 +196,60 @@ public static class HunterRulesTests
         Check(HunterArgs.Level("4", 1, lrng) == 4, "Fixed level");
         Check(HunterArgs.Level("0", 1, lrng) == 1 && HunterArgs.Level("7", 2, lrng) == 2, "Out-of-range level falls back");
         Check(HunterArgs.Level(null, 3, lrng) == 3 && HunterArgs.Level("abc", 3, lrng) == 3, "Missing or bad level falls back");
+
+        // Expansion flags: skill, seed shift, epsilon decay.
+        string[] ext = { "Game", "-thiefbot-skill", "0.7", "-hunter-seed-offset", "25", "-hunter-eps-decay", "600", "-hunter-solo" };
+        Check(Math.Abs(HunterArgs.Float(ext, "-thiefbot-skill", -1) - .7f) < 1e-6f, "Float parses with invariant culture");
+        Check(HunterArgs.Float(ext, "-missing", -1) == -1 && HunterArgs.Float(new[] { "-thiefbot-skill", "abc" }, "-thiefbot-skill", -1) == -1, "Float falls back");
+        Check(HunterArgs.Int(ext, "-hunter-eps-decay", QLearningHunter.DefaultEpsilonDecayEpisodes) == 600, "Eps decay flag parses");
+        var srng = new Random(5);
+        Check(HunterArgs.SeedOffset(null, null, srng) == 0, "No seed flags keep the level seed");
+        Check(HunterArgs.SeedOffset("25", null, srng) == 25, "Fixed seed offset");
+        Check(HunterArgs.SeedOffset("abc", null, srng) == 0, "Bad seed offset falls back to 0");
+        var offsets = new HashSet<int>();
+        for (int i = 0; i < 3000; i++)
+        {
+            int k = HunterArgs.SeedOffset("25", "random", srng);
+            Check(k >= 0 && k < 1000, "Random seed offset in 0..999");
+            offsets.Add(k);
+        }
+        Check(offsets.Count > 900, "Random seed offsets spread over the range");
+        Check(HunterArgs.SeedOffset(null, "RANDOM", srng) >= 0, "random seed is case-insensitive");
+
+        var decay = new QLearningHunter { EpsilonDecayEpisodes = 600, Episodes = 300 };
+        Check(Math.Abs(decay.Epsilon - .525f) < 1e-4f, "Custom decay halves epsilon at its midpoint");
+        decay.Episodes = 600;
+        Check(Math.Abs(decay.Epsilon - QLearningHunter.EpsilonEnd) < 1e-5f, "Custom decay reaches the floor at N");
+        Check(new QLearningHunter().EpsilonDecayEpisodes == 150, "Default decay stays 150");
+        decay.EpsilonDecayEpisodes = 0; decay.Episodes = 0;
+        Check(decay.Epsilon == QLearningHunter.EpsilonStart, "Zero decay never divides by zero");
+
+        Check(ThiefStyle.Default.Caution == 0 && ThiefStyle.Random(new Random(1)).Caution == 0, "Default styles never wait or reroute");
+        var krng = new Random(9);
+        float lowHide = 0, highHide = 0, lowSneak = 0, highSneak = 0;
+        for (int i = 0; i < 500; i++)
+        {
+            ThiefStyle low = ThiefStyle.ForSkill(.1f, krng), high = ThiefStyle.ForSkill(.9f, krng);
+            foreach (ThiefStyle st in new[] { low, high })
+                Check(st.HideChance >= .1f && st.HideChance <= .9f && st.CanChance >= .05f && st.CanChance <= .7f &&
+                      st.SneakRadius >= 4 && st.SneakRadius <= 12 && st.CalmSeconds >= 2 && st.CalmSeconds <= 8 &&
+                      st.Caution >= 0 && st.Caution <= 1, "Skill style in range");
+            lowHide += low.HideChance; highHide += high.HideChance; lowSneak += low.SneakRadius; highSneak += high.SneakRadius;
+        }
+        Check(highHide > lowHide && highSneak > lowSneak, "Higher skill hides and sneaks more on average");
+        ThiefStyle unskilled = ThiefStyle.ForSkill(0, new Random(2));
+        Check(unskilled.Caution <= ThiefStyle.SkillJitter + 1e-6f, "Skill 0 stays near zero caution");
+
+        var route = new ThiefSense { NearestGuard = 7, TargetsLeft = true, SinceThreat = 99, ThreatOnRoute = true, WantsWait = true, WaitedSeconds = 2 };
+        intent = ThiefPolicy.Decide(route, style);
+        Check(intent.Goal == ThiefGoal.Wait && intent.Sneak && !intent.Run, "Wait while a guard is on the route");
+        route.WaitedSeconds = ThiefPolicy.MaxWaitSeconds;
+        Check(ThiefPolicy.Decide(route, style).Goal == ThiefGoal.Target, "Stop waiting after MaxWaitSeconds");
+        route.WaitedSeconds = 0; route.WantsWait = false;
+        Check(ThiefPolicy.Decide(route, style).Goal == ThiefGoal.Target, "No wait without the caution roll");
+        route.WantsWait = true; route.Spotted = true;
+        Check(ThiefPolicy.Decide(route, style).Goal == ThiefGoal.Flee, "Being spotted beats waiting");
+        Check((int)ThiefGoal.Wait == 6 && (int)ThiefGoal.LeaveHiding == 5, "ThiefGoal appended, old values unchanged");
 
         Console.WriteLine("PASS: " + checks + " hunter and thief assertions");
         return 0;

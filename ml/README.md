@@ -41,6 +41,13 @@ Hunter dan bot hanya aktif lewat flag command line. Tanpa flag, game berjalan se
 | `-hunter-episodes N` | Berhenti setelah N episode (untuk training Q: setelah tabel berisi N episode). Player build keluar sendiri |
 | `-hunter-level 1..6` atau `random` | Level tiap misi (default 1). Mode loop membuka semua level tanpa menyimpan progres |
 | `-hunter-table <path>` | Lokasi tabel Q untuk dibaca dan ditulis, menggantikan `persistentDataPath` dan Resources |
+| `-hunter-solo` | Mode loop saja: hanya `guards[0]` (Hunter) yang aktif, monster lain dinonaktifkan |
+| `-thiefbot-skill 0..1` | Keahlian bot; bobot tiap episode diacak ±0,15 di sekitar nilai ini. Makin tinggi: makin sering mengendap, bersembunyi, melempar kaleng, menunggu monster yang menghalangi rute, dan memilih target yang menjauhi monster terakhir yang terlihat/terdengar. Tanpa flag: perilaku lama |
+| `-hunter-seed-offset K` | Mode loop saja: seed layout = `LayoutSeed + K` (K ≥ 0) untuk interior, rumah, dan NavMesh. Beat patroli yang gagal validasi jatuh ke rute bawaan |
+| `-hunter-seed random` | Seperti di atas, K diacak 0–999 tiap misi (mengalahkan `-hunter-seed-offset`) |
+| `-hunter-eps-decay N` | Epsilon Q-learning turun ke 0,05 dalam N episode (default 150) |
+
+Baris `HUNTER` juga diakhiri `seed=<seed> solo=<True|False> skill=<x.xx> exitTime=<detik>`. `skill=-1.00` artinya tanpa `-thiefbot-skill`, dan `exitTime` adalah lama `guards[0]` berada < 4 m dari pintu keluar.
 
 Mode training dan evaluasi membatasi misi 180 detik (dicatat `timeout=True`).
 

@@ -8,14 +8,16 @@ namespace SneakHouse
     public sealed class QLearningHunter
     {
         public const float Alpha = .1f, Gamma = .95f, EpsilonStart = 1, EpsilonEnd = .05f;
-        public const int EpsilonDecayEpisodes = 150;
+        public const int DefaultEpsilonDecayEpisodes = 150;
         public readonly float[] Q = new float[HunterContract.StateCount * HunterContract.ActionCount];
         public int Episodes;
+        // Not saved in the JSON: set per run with -hunter-eps-decay.
+        public int EpsilonDecayEpisodes = DefaultEpsilonDecayEpisodes;
 
         public float Get(int state, HunterAction action) => Q[state * HunterContract.ActionCount + (int)action];
 
-        // Linear decay from full exploration to 5% over the first 150 training missions.
-        public float Epsilon => Math.Max(EpsilonEnd, EpsilonStart - (EpsilonStart - EpsilonEnd) * Episodes / EpsilonDecayEpisodes);
+        // Linear decay from full exploration to 5% over the first EpsilonDecayEpisodes training missions.
+        public float Epsilon => Math.Max(EpsilonEnd, EpsilonStart - (EpsilonStart - EpsilonEnd) * Episodes / Math.Max(1, EpsilonDecayEpisodes));
 
         public static bool[] Allowed(in HunterSituation s)
         {

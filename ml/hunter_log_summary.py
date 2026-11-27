@@ -8,6 +8,7 @@ import argparse
 import csv
 import json
 import math
+import os
 import re
 
 ACTIONS = ["GoLastKnown", "SweepSector", "InterceptExit", "AmbushTarget", "CheckHidingSpot", "GiveUp"]
@@ -51,12 +52,16 @@ def greedy_policy(qtable_path):
     with open(qtable_path) as f:
         table = json.load(f)
     q = table["q"]
+    # A table that started optimistic (lab run q-opt) records its starting value next to it; "visited" means changed from it.
+    here = os.path.dirname(os.path.abspath(qtable_path))
+    found = [p for p in (os.path.join(here, "init.json"), os.path.join(os.path.dirname(here), "init.json")) if os.path.exists(p)]
+    init = json.load(open(found[0]))["init"] if found else 0.0
     if len(q) != 48 * 6:
         raise ValueError(f"Q-table has {len(q)} values, contract needs 288")
     rows = []
     for state in range(48):
         values = q[state * 6:(state + 1) * 6]
-        if not any(values):
+        if all(abs(v - init) < 1e-9 for v in values):
             continue  # never visited
         near, rest = divmod(state, 16)
         stale, rest = divmod(rest, 8)

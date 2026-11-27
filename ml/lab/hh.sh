@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Hollow House RL lab runner (plans/rl-training-lab.md sections 6-9).
-# Usage: repo/ml/lab/hh.sh <setup|preflight|smoke|q|ppo|ppo-watch|eval|report|status|auto>
+# Usage: repo/ml/lab/hh.sh <setup|preflight|smoke|q|q-opt|ppo|ppo-watch|eval|report|status|auto>
 # Everything stays in $HH_ROOT (default ~/hollowhouse-rl). Long runs go to tmux sessions named hh-*.
 set -euo pipefail
 
@@ -99,7 +99,8 @@ cmd_smoke() {
 }
 
 SELF=$(readlink -f "$0")
-in_tmux() {  # session, job
+in_tmux() {  # session, job (HH_TAG suffixes the session so parallel variants do not collide)
+  set -- "$1${HH_TAG:+-$HH_TAG}" "$2"
   need_session_free "$1"
   # tmux runs jobs in its server's environment, so pass every HH_* setting explicitly.
   local envs; envs=$( (env | grep '^HH_' || true) | sed "s/'/'\\\\''/g; s/=\(.*\)/='\1'/" | tr '\n' ' ')
@@ -125,8 +126,8 @@ q_snapshots() {
 }
 job_q() {
   stamp start q
-  q_snapshots & local snap=$!
-  trap 'kill $snap 2>/dev/null' EXIT
+  q_snapshots & QSNAP_PID=$!
+  trap 'kill "${QSNAP_PID:-}" 2>/dev/null || true' EXIT
   run_game "$LOGS/q_train.log" "$EPISODES_Q" 36000 -hunter-train -hunter-level random -hunter-table "$RES/q/hunter_qtable.json"
   local visited; visited=$(q_summary)
   say "visited $visited/48 states after $EPISODES_Q episodes"
@@ -134,9 +135,27 @@ job_q() {
     run_game "$LOGS/q_train_ext.log" 3000 36000 -hunter-train -hunter-level random -hunter-table "$RES/q/hunter_qtable.json"
     visited=$(q_summary); say "visited $visited/48 states after 3000 episodes"
   fi
+  kill "$QSNAP_PID" 2>/dev/null || true; trap - EXIT
+  cp "$RES/q/hunter_qtable.json" "$RES/q/snapshots/final.json"
   stamp end q; say "Q-learning done"
 }
 cmd_q() { cmd_preflight; in_tmux hh-q _q; }
+
+# Comparison run: same training, but the Q-table starts optimistic (every value HH_Q_INIT, default 0.5) so even the
+# greedy choice tries each action in each state until its value falls to what it really earns. Rewards, contract and
+# C# are unchanged; only the starting table differs. Lives in $ROOT/qopt with its own logs/results; tmux hh-q-opt.
+cmd_q_opt() {
+  cmd_preflight
+  local r2=$ROOT/qopt init=${HH_Q_INIT:-0.5}
+  mkdir -p "$r2/results/q"
+  for d in repo venv HollowHouseRL; do [ -e "$r2/$d" ] || ln -s "$ROOT/$d" "$r2/$d"; done
+  if [ ! -f "$r2/results/q/hunter_qtable.json" ]; then
+    "$VENV/bin/python" -I -c 'import json,sys; v=float(sys.argv[2]); json.dump({"episodes": 0, "q": [v]*288}, open(sys.argv[1], "w"), separators=(",", ":"))' \
+      "$r2/results/q/hunter_qtable.json" "$init"
+    printf '{"init": %s}\n' "$init" > "$r2/results/q/init.json"
+  fi
+  HH_ROOT=$r2 HH_TAG=opt "$SELF" q
+}
 
 job_ppo() {
   local envs=${HH_NUM_ENVS:-10} cap gpu resume=""
@@ -149,7 +168,7 @@ job_ppo() {
   CUDA_VISIBLE_DEVICES=$gpu "$VENV/bin/python" -I -c \
     'import os, signal, sys; signal.signal(signal.SIGINT, signal.SIG_DFL); os.execv(sys.argv[1], sys.argv[1:])' \
     "$VENV/bin/mlagents-learn" "$REPO/ml/hunter_ppo.yaml" --run-id "$RUN_ID" $resume \
-    --env "$GAME" --num-envs "$envs" --no-graphics --time-scale 4 --timeout-wait 600 --env-args -hunter-ppo-train &
+    --env "$GAME" --num-envs "$envs" --results-dir "$RES" --no-graphics --time-scale 4 --timeout-wait 600 --env-args -hunter-ppo-train &
   local trainer=$!
   # Plan rule: if reward has not risen by 30k steps, stop (SIGINT makes mlagents save the model) and report.
   while kill -0 "$trainer" 2>/dev/null; do
@@ -197,7 +216,7 @@ PY
   (cd "$RES" && exec "$VENV/bin/python" -I -c \
     'import os, signal, sys; signal.signal(signal.SIGINT, signal.SIG_DFL); os.execv(sys.argv[1], sys.argv[1:])' \
     "$VENV/bin/mlagents-learn" "$RES/$run.yaml" --run-id "$run" --initialize-from "$RUN_ID" --inference --deterministic \
-    --env "$GAME" --num-envs "$envs" --no-graphics --time-scale 4 --timeout-wait 600 --env-args -hunter-ppo-train -hunter-level "$L" \
+    --env "$GAME" --num-envs "$envs" --results-dir "$RES" --no-graphics --time-scale 4 --timeout-wait 600 --env-args -hunter-ppo-train -hunter-level "$L" \
     > "$LOGS/$run.trainer.log" 2>&1) &
   local trainer=$! got=0 start=$SECONDS
   while kill -0 "$trainer" 2>/dev/null && [ $((SECONDS - start)) -lt 43200 ]; do
@@ -286,6 +305,7 @@ cmd_status() {
 
 case "${1:-}" in
   setup|preflight|smoke|q|ppo|eval|report|status|auto) "cmd_$1" ;;
+  q-opt) cmd_q_opt ;;
   ppo-watch) cmd_ppo_watch ;;
   _q|_ppo|_eval|_auto) "job${1}" ;;
   _eval_one) eval_one "$2" "$3" ;;

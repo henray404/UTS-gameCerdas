@@ -6,23 +6,32 @@ using UnityEngine.SceneManagement;
 namespace SneakHouse
 {
     // Tahap A of plans/rl-enemy-design.md: guards[0] becomes The Hunter and a Q-table picks where it goes after losing the player.
-    // Off unless the game starts with -hunter (play the saved table), -hunter-train (learn against ThiefBot, saving every mission),
-    // -hunter-eval (greedy, no learning) or -hunter-baseline (plain FSM guard, only the mission loop and log). ThiefBot.Install
-    // enables the bot for the last three.
+    // Off unless the game starts with one of (all but -hunter loop missions against ThiefBot, never save records, and unlock all levels):
+    //   -hunter            play the shipped Q-table
+    //   -hunter-train      Q-learning, saving the table after every mission
+    //   -hunter-eval       Q-table greedy, no learning
+    //   -hunter-baseline   plain FSM guard; only the mission loop and log
+    //   -hunter-ppo-train  ML-Agents policy trained by mlagents-learn (HunterAgent)
+    //   -hunter-ppo-eval   ML-Agents policy from Resources/Adaptive/HunterGuard.onnx
+    // Options: -hunter-episodes N (players quit after N), -hunter-level 1..6|random, -hunter-table <path>.
     public class HunterDecision : MonoBehaviour
     {
         public const string TableFile = "hunter_qtable.json", TableResource = "Adaptive/hunter_qtable";
         public const float TrainSpeed = 4;
+        public static readonly string[] LoopFlags = { "-hunter-train", "-hunter-eval", "-hunter-baseline", "-hunter-ppo-train", "-hunter-ppo-eval" };
         // Greedy play once gave up on every footstep (11 decisions/s for 95 minutes); after a GiveUp, new evidence is investigated.
         public const float GiveUpCooldown = 5;
         // Training/eval only: the longest FSM baseline mission was 58 s, so this only cuts stuck episodes.
         public const float MaxMissionSeconds = 180;
-        public static bool Enabled, Training, Evaluating, Baseline;
+        public static bool Enabled, Training, Evaluating, Baseline, Ppo, PpoTrain;
+        public static bool Looping => Training || Evaluating || PpoTrain;
         public static int TargetEpisodes;
         public static QLearningHunter Table { get; private set; }
         public static int CompletedEpisodes => Training ? Table.Episodes : evalEpisodes;
         private static int evalEpisodes;
-        public static string TablePath => Path.Combine(Application.persistentDataPath, TableFile);
+        private static string tableOverride, levelSpec;
+        private static System.Random levelRng;
+        public static string TablePath => tableOverride ?? Path.Combine(Application.persistentDataPath, TableFile);
 
         public HidingSpot CheckingSpot { get; private set; }
         public HunterAction LastAction { get; private set; }
@@ -42,26 +51,34 @@ namespace SneakHouse
         private HidingSpot nearestSpot;
         private readonly int[] histogram = new int[HunterContract.ActionCount];
         private NavMeshPath path;
+        private HunterAgent agent;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Install()
         {
             string[] args = System.Environment.GetCommandLineArgs();
-            Training = System.Array.IndexOf(args, "-hunter-train") >= 0;
-            Baseline = System.Array.IndexOf(args, "-hunter-baseline") >= 0;
-            Evaluating = !Training && (Baseline || System.Array.IndexOf(args, "-hunter-eval") >= 0);
-            Enabled = Training || Evaluating || System.Array.IndexOf(args, "-hunter") >= 0;
+            Training = HunterArgs.Has(args, "-hunter-train");
+            PpoTrain = !Training && HunterArgs.Has(args, "-hunter-ppo-train");
+            Ppo = PpoTrain || HunterArgs.Has(args, "-hunter-ppo-eval");
+            Baseline = HunterArgs.Has(args, "-hunter-baseline");
+            Evaluating = !Training && !PpoTrain && (Baseline || HunterArgs.Has(args, "-hunter-eval") || HunterArgs.Has(args, "-hunter-ppo-eval"));
+            Enabled = Looping || HunterArgs.Has(args, "-hunter");
+            GameSession.UnlockAll = Looping;
             evalEpisodes = 0;
-            int at = System.Array.IndexOf(args, "-hunter-episodes");
-            TargetEpisodes = at >= 0 && at + 1 < args.Length && int.TryParse(args[at + 1], out int n) ? n : 0;
+            TargetEpisodes = HunterArgs.Int(args, "-hunter-episodes", 0);
+            levelSpec = HunterArgs.Value(args, "-hunter-level");
+            levelRng = new System.Random(System.Environment.TickCount);
+            string table = HunterArgs.Value(args, "-hunter-table");
+            tableOverride = table == null ? null : Path.GetFullPath(table);
             if (!Enabled) return;
             Table = LoadTable();
+            if (Ppo) HunterAgent.PrepareAcademy();
             SceneManager.sceneLoaded -= Attach; SceneManager.sceneLoaded += Attach;
         }
-        // Training resumes from the local save; play prefers the table shipped in Resources.
+        // -hunter-table wins; otherwise training resumes from the local save and play prefers the table shipped in Resources.
         private static QLearningHunter LoadTable()
         {
-            TextAsset shipped = Training ? null : Resources.Load<TextAsset>(TableResource);
+            TextAsset shipped = Training || tableOverride != null ? null : Resources.Load<TextAsset>(TableResource);
             string json = shipped != null ? shipped.text : File.Exists(TablePath) ? File.ReadAllText(TablePath) : null;
             if (QLearningHunter.TryParse(json, out QLearningHunter table)) return table;
             if (json != null) Debug.LogWarning("HUNTER: Q-table does not match the 48x6 contract; starting from zeros.");
@@ -76,6 +93,7 @@ namespace SneakHouse
             HunterDecision decision = first.gameObject.AddComponent<HunterDecision>();
             // Baseline keeps the component for the mission loop and log but leaves the FSM in charge.
             if (!Baseline) first.hunter = decision;
+            if (Ppo) decision.agent = HunterAgent.AddTo(first.gameObject, inference: !PpoTrain);
         }
         private void Awake()
         {
@@ -92,7 +110,8 @@ namespace SneakHouse
             bool[] allowed = QLearningHunter.Allowed(s);
             if (now - lastGiveUp < GiveUpCooldown) allowed[(int)HunterAction.GiveUp] = false;
             if (pending && Training) Table.Update(pendingState, pendingAction, pendingReward, state, allowed, false);
-            HunterAction action = Table.Choose(state, allowed, Training ? Table.Epsilon : 0, rng);
+            HunterAction action = agent != null ? agent.Decide(s, allowed, pending ? pendingReward : 0)
+                                                : Table.Choose(state, allowed, Training ? Table.Epsilon : 0, rng);
             pending = true; pendingState = state; pendingAction = action; pendingReward = HunterContract.StepReward;
             LastAction = action; hasPrevious = true; Decisions++; histogram[(int)action]++;
             CheckingSpot = null;
@@ -198,18 +217,28 @@ namespace SneakHouse
             GameSession game = GameSession.Instance;
             if (game == null) return;
             if (game.Finished && !ended) EndMission(game);
-            if (!Training && !Evaluating) return;
+            if (!Looping) return;
             if (game.Phase == GameSession.ScreenState.Playing && !ended && game.Elapsed > MaxMissionSeconds)
             {
                 timedOut = true; EndMission(game); game.Restart(); return;
             }
-            if (game.Phase == GameSession.ScreenState.MainMenu) game.StartLevel(1);
+            bool done = TargetEpisodes > 0 && CompletedEpisodes >= TargetEpisodes;
+            if (game.Phase == GameSession.ScreenState.MainMenu) game.StartLevel(NextLevel());
             else if (game.Phase == GameSession.ScreenState.Briefing && game.MissionReady)
             {
                 game.PersistRecords = false; game.BeginMission(); Time.timeScale = TrainSpeed;
             }
-            else if (game.Phase == GameSession.ScreenState.Results && ended && Time.unscaledTime >= restartAt &&
-                     (TargetEpisodes <= 0 || CompletedEpisodes < TargetEpisodes)) game.Restart();
+            else if (game.Phase == GameSession.ScreenState.Results && ended && Time.unscaledTime >= restartAt)
+            {
+                // The editor runner exits itself; a player build has nothing else to stop it.
+                if (done) { if (!Application.isEditor) Application.Quit(); }
+                else game.StartLevel(NextLevel());
+            }
+        }
+        private static int NextLevel()
+        {
+            int level = HunterArgs.Level(levelSpec, 1, levelRng);
+            return PpoTrain ? HunterAgent.CurriculumLevel(level) : level;
         }
         private void EndMission(GameSession game)
         {
@@ -217,9 +246,15 @@ namespace SneakHouse
             float terminal = guard.CaughtPlayer ? HunterContract.CatchReward : game.Won ? HunterContract.EscapeReward : 0;
             if (pending && Training)
                 Table.Update(pendingState, pendingAction, pendingReward + terminal, 0, QLearningHunter.Allowed(default), true);
+            // An episode without any decision has nothing to credit; the agent's removal on scene reload closes it.
+            if (pending && agent != null) agent.Finish(pendingReward + terminal);
             pending = false;
-            if (Training) { Table.Episodes++; File.WriteAllText(TablePath, Table.ToJson()); }
-            else if (Evaluating) evalEpisodes++;
+            if (Training)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(TablePath));
+                Table.Episodes++; File.WriteAllText(TablePath, Table.ToJson());
+            }
+            else if (Looping) evalEpisodes++;
             else return;
             Debug.Log($"HUNTER episode={CompletedEpisodes} eps={(Training ? Table.Epsilon : 0):F2} level={game.Level.Number} won={game.Won} " +
                       $"hunterCaught={guard.CaughtPlayer} time={game.Elapsed:F1} decisions={Decisions} actions=[{string.Join(",", histogram)}]" +

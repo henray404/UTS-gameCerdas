@@ -33,8 +33,7 @@ namespace SneakHouse
         {
             // Hunter training needs the bot too; read both flags here because BeforeSceneLoad order between classes is undefined.
             string[] args = System.Environment.GetCommandLineArgs();
-            Enabled = System.Array.IndexOf(args, "-thiefbot") >= 0 || System.Array.IndexOf(args, "-hunter-train") >= 0 ||
-                      System.Array.IndexOf(args, "-hunter-eval") >= 0 || System.Array.IndexOf(args, "-hunter-baseline") >= 0;
+            Enabled = HunterArgs.Has(args, "-thiefbot") || System.Array.Exists(HunterDecision.LoopFlags, flag => HunterArgs.Has(args, flag));
             SceneManager.sceneLoaded -= Attach; SceneManager.sceneLoaded += Attach;
         }
         private static void Attach(Scene scene, LoadSceneMode mode)

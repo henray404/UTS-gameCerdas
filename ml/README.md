@@ -36,7 +36,11 @@ Hunter dan bot hanya aktif lewat flag command line. Tanpa flag, game berjalan se
 | `-hunter-train` | Hunter belajar melawan `ThiefBot` di level 1; misi diulang otomatis dengan kecepatan 4×, skor dan progres tidak disimpan |
 | `-hunter-eval` | Seperti training, tapi Hunter memakai tabel dari Resources secara greedy tanpa belajar |
 | `-hunter-baseline` | Loop misi yang sama dengan monster FSM biasa, sebagai pembanding |
-| `-hunter-episodes N` | Berhenti setelah N episode (untuk training: setelah tabel berisi N episode) |
+| `-hunter-ppo-train` | Hunter dikendalikan policy ML-Agents (`HunterAgent`) yang dilatih `mlagents-learn ml/hunter_ppo.yaml` |
+| `-hunter-ppo-eval` | Policy dari `Resources/Adaptive/HunterGuard.onnx` tanpa trainer (kalau file belum ada: heuristik GoLastKnown) |
+| `-hunter-episodes N` | Berhenti setelah N episode (untuk training Q: setelah tabel berisi N episode). Player build keluar sendiri |
+| `-hunter-level 1..6` atau `random` | Level tiap misi (default 1). Mode loop membuka semua level tanpa menyimpan progres |
+| `-hunter-table <path>` | Lokasi tabel Q untuk dibaca dan ditulis, menggantikan `persistentDataPath` dan Resources |
 
 Mode training dan evaluasi membatasi misi 180 detik (dicatat `timeout=True`).
 

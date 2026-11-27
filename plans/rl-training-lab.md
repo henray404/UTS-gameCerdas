@@ -37,7 +37,7 @@ Sudah ada di working tree laptop, **belum di-commit**:
 
 Hasil terakhir (level 1, 100 misi per sisi): Hunter Q-learning menangkap 46% (95% CI 37–56%), FSM 36% (27–46%), p = 0,15. Belum signifikan.
 
-Flag yang sudah ada: `-thiefbot`, `-hunter`, `-hunter-train`, `-hunter-eval`, `-hunter-baseline`, `-hunter-episodes N`. Setiap misi menulis satu baris `HUNTER episode=... won=... hunterCaught=... time=... decisions=... actions=[...]` ke log.
+Flag yang sudah ada: `-thiefbot`, `-hunter`, `-hunter-train`, `-hunter-eval`, `-hunter-baseline`, `-hunter-ppo-train`, `-hunter-ppo-eval`, `-hunter-episodes N`, `-hunter-level 1..6|random`, `-hunter-table <path>` (daftar lengkap di `ml/README.md`). Setiap misi menulis satu baris `HUNTER episode=... won=... hunterCaught=... time=... decisions=... actions=[...]` ke log.
 
 ## 4. Fase 0: prasyarat (laptop)
 
@@ -64,7 +64,7 @@ Flag yang sudah ada: `-thiefbot`, `-hunter`, `-hunter-train`, `-hunter-eval`, `-
 |---|---|
 | Tambah `com.unity.ml-agents` **4.2.0** ke `Packages/manifest.json` | Butuh Unity ≥ 6000.0; dependensi `com.unity.ai.inference` 2.6.1 |
 | `Adaptive/RL/HunterAgent.cs : Agent` | `CollectObservations` = `HunterContract.Write` (28 float); `WriteDiscreteActionMask` = `HunterContract.IsAllowed` + cooldown GiveUp; `OnActionReceived` memakai eksekusi aksi yang sama dengan `HunterDecision`; `Heuristic` = GoLastKnown (perilaku FSM) |
-| `RayPerceptionSensor3D` 8 ray, layer 8 (dinding) | Hanya di PPO |
+| `RayPerceptionSensor3D` 9 ray (4 per sisi + depan, 360°), layer 8 (dinding) | Hanya di PPO |
 | Keputusan diminta manual dengan `RequestDecision()` di titik yang sama dengan `HunterDecision.Decide` | Jangan pakai `DecisionRequester` per frame |
 | Reward per keputusan dan terminal sama dengan Q-learning; `EndEpisode()` saat misi selesai, sebelum scene dimuat ulang | Episode = satu misi |
 | Behavior Name `HunterGuard`, 1 branch diskrit ukuran 6 | Harus sama di Behavior Parameters, YAML, dan perintah training |
@@ -146,7 +146,7 @@ Gamma 0,95 disamakan dengan Q-learning supaya perbandingannya adil. Threshold cu
 
 ```bash
 CUDA_VISIBLE_DEVICES=<gpu paling kosong> venv/bin/mlagents-learn repo/ml/hunter_ppo.yaml --run-id hunter_ppo_v1 \
-  --env HollowHouseRL/HollowHouse.x86_64 --num-envs 10 --no-graphics --env-args -hunter-ppo-train
+  --env HollowHouseRL/HollowHouse.x86_64 --num-envs 10 --no-graphics --time-scale 4 --timeout-wait 600 --env-args -hunter-ppo-train
 venv/bin/tensorboard --logdir results --port 6006   # dari laptop: ssh -L 6006:localhost:6006 dnp-lab-planck
 ```
 

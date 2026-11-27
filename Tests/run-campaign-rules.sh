@@ -59,5 +59,6 @@ trap 'rm -rf -- "$test_dir"' EXIT
     "$project_dir/Assets/SneakHouse/Scripts/Adaptive/RL/HunterContract.cs" \
     "$project_dir/Assets/SneakHouse/Scripts/Adaptive/RL/ThiefPolicy.cs" \
     "$project_dir/Assets/SneakHouse/Scripts/Adaptive/RL/QLearningHunter.cs" \
+    "$project_dir/Assets/SneakHouse/Scripts/Adaptive/RL/HunterArgs.cs" \
     "$project_dir/Tests/HunterRulesTests.cs"
 "$mono_dir/mono" "$test_dir/hunter-rules.exe"

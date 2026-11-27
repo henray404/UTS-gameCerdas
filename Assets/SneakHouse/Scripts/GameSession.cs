@@ -41,6 +41,8 @@ namespace SneakHouse
         public const string ProgressKey = "SneakHouse.Campaign.v1.Completed";
         private static int selectedLevel = 1;
         public static CampaignLevel SelectedLevel => CampaignLevels.Get(selectedLevel);
+        // Set only by Hunter training/eval runs (which never save records) so they can play any level on a fresh profile.
+        public static bool UnlockAll;
         public CampaignLevel Level => SelectedLevel;
         public CampaignProgress Progress { get; private set; }
         public bool NewlyUnlocked { get; private set; }
@@ -131,7 +133,7 @@ namespace SneakHouse
         }
         public bool StartLevel(int number)
         {
-            if (Phase == ScreenState.Playing || Phase == ScreenState.Paused || !Progress.IsUnlocked(number)) return false;
+            if (Phase == ScreenState.Playing || Phase == ScreenState.Paused || !(UnlockAll || Progress.IsUnlocked(number))) return false;
             selectedLevel = number; reopenBriefing = true; reopenLevels = false;
             Time.timeScale = 1; SceneManager.LoadScene(SceneManager.GetActiveScene().name);
             return true;
@@ -147,7 +149,7 @@ namespace SneakHouse
         }
         public void BeginMission()
         {
-            if (Phase == ScreenState.Briefing && Progress.IsUnlocked(Level.Number) && MissionReady) SetScreen(ScreenState.Playing);
+            if (Phase == ScreenState.Briefing && (UnlockAll || Progress.IsUnlocked(Level.Number)) && MissionReady) SetScreen(ScreenState.Playing);
         }
         public void TogglePause()
         {

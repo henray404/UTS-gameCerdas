@@ -21,11 +21,10 @@ namespace SneakHouseEditor
         public static void Run()
         {
             string[] args = System.Environment.GetCommandLineArgs();
-            bool mode = System.Array.IndexOf(args, "-hunter-train") >= 0 || System.Array.IndexOf(args, "-hunter-eval") >= 0 ||
-                        System.Array.IndexOf(args, "-hunter-baseline") >= 0;
-            if (!Application.isBatchMode || !mode || System.Array.IndexOf(args, "-hunter-episodes") < 0)
+            bool mode = System.Array.Exists(HunterDecision.LoopFlags, flag => HunterArgs.Has(args, flag));
+            if (!Application.isBatchMode || !mode || !HunterArgs.Has(args, "-hunter-episodes"))
             {
-                Debug.LogError("HUNTER: run in batch mode with -hunter-train, -hunter-eval or -hunter-baseline, plus -hunter-episodes <n>.");
+                Debug.LogError("HUNTER: run in batch mode with one of " + string.Join(", ", HunterDecision.LoopFlags) + ", plus -hunter-episodes <n>.");
                 EditorApplication.Exit(1);
                 return;
             }

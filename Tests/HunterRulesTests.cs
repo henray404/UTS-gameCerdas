@@ -174,6 +174,29 @@ public static class HunterRulesTests
         Check(!QLearningHunter.TryParse("", out _) && !QLearningHunter.TryParse(null, out _) && !QLearningHunter.TryParse("garbage", out _), "Garbage rejected");
         Check(!QLearningHunter.TryParse(u.ToJson().Replace("-0.123", "NaN"), out _), "NaN rejected");
 
+        // Command-line flags for lab runs.
+        string[] argv = { "Game", "-batchmode", "-hunter-train", "-hunter-level", "random", "-hunter-episodes", "1500", "-hunter-table", "results/q.json", "-hunter-ppo-eval" };
+        Check(HunterArgs.Has(argv, "-hunter-train") && !HunterArgs.Has(argv, "-hunter"), "Has matches whole flags only");
+        Check(HunterArgs.Value(argv, "-hunter-table") == "results/q.json", "Value after flag");
+        Check(HunterArgs.Value(argv, "-hunter-ppo-eval") == null, "Last flag has no value");
+        Check(HunterArgs.Value(argv, "-missing") == null, "Missing flag has no value");
+        Check(HunterArgs.Value(new[] { "-hunter-table", "-hunter-train" }, "-hunter-table") == null, "A following flag is not a value");
+        Check(HunterArgs.Int(argv, "-hunter-episodes", 0) == 1500, "Int parses");
+        Check(HunterArgs.Int(argv, "-hunter-level", 7) == 7, "Int falls back on text");
+        var lrng = new Random(11);
+        var levels = new HashSet<int>();
+        for (int i = 0; i < 600; i++)
+        {
+            int level = HunterArgs.Level("random", 1, lrng);
+            Check(level >= 1 && level <= HunterArgs.MaxLevel, "Random level in 1..6");
+            levels.Add(level);
+        }
+        Check(levels.Count == HunterArgs.MaxLevel, "Random covers all six levels");
+        Check(HunterArgs.Level("RANDOM", 1, lrng) >= 1, "random is case-insensitive");
+        Check(HunterArgs.Level("4", 1, lrng) == 4, "Fixed level");
+        Check(HunterArgs.Level("0", 1, lrng) == 1 && HunterArgs.Level("7", 2, lrng) == 2, "Out-of-range level falls back");
+        Check(HunterArgs.Level(null, 3, lrng) == 3 && HunterArgs.Level("abc", 3, lrng) == 3, "Missing or bad level falls back");
+
         Console.WriteLine("PASS: " + checks + " hunter and thief assertions");
         return 0;
     }

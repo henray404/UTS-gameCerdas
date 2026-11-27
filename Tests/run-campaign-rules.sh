@@ -11,7 +11,8 @@ if [[ -n "$editor" ]]; then
         exit 1
     fi
     editor_dir="$(cd -- "$(dirname -- "$editor")" && pwd)"
-    for candidate in "$editor_dir/Data/MonoBleedingEdge/bin" "$editor_dir/../MonoBleedingEdge/bin"; do
+    for candidate in "$editor_dir/Data/MonoBleedingEdge/bin" "$editor_dir/../MonoBleedingEdge/bin" \
+        "$editor_dir/../Resources/Scripting/MonoBleedingEdge/bin"; do
         if [[ -x "$candidate/mono" && -f "$candidate/../lib/mono/4.5/mcs.exe" ]]; then
             mono_dir="$candidate"
             break
@@ -24,6 +25,7 @@ else
         /opt/unity/Editor/Data/MonoBleedingEdge/bin
         /opt/Unity/Hub/Editor/*/Editor/Data/MonoBleedingEdge/bin
         /Applications/Unity/Hub/Editor/*/Unity.app/Contents/MonoBleedingEdge/bin
+        /Applications/Unity/Hub/Editor/*/Unity.app/Contents/Resources/Scripting/MonoBleedingEdge/bin
     )
     for candidate in "${candidates[@]}"; do
         if [[ -x "$candidate/mono" && -f "$candidate/../lib/mono/4.5/mcs.exe" ]]; then
@@ -52,3 +54,10 @@ trap 'rm -rf -- "$test_dir"' EXIT
     "$project_dir/Assets/SneakHouse/Scripts/ScoreData.cs" \
     "$project_dir/Tests/ScoreRulesTests.cs"
 "$mono_dir/mono" "$test_dir/score-rules.exe"
+"$mono_dir/mono" "$mono_dir/../lib/mono/4.5/mcs.exe" -langversion:latest \
+    -out:"$test_dir/hunter-rules.exe" \
+    "$project_dir/Assets/SneakHouse/Scripts/Adaptive/RL/HunterContract.cs" \
+    "$project_dir/Assets/SneakHouse/Scripts/Adaptive/RL/ThiefPolicy.cs" \
+    "$project_dir/Assets/SneakHouse/Scripts/Adaptive/RL/QLearningHunter.cs" \
+    "$project_dir/Tests/HunterRulesTests.cs"
+"$mono_dir/mono" "$test_dir/hunter-rules.exe"

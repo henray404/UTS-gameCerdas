@@ -27,6 +27,10 @@ namespace SneakHouse
         // Waypoints visited only every peekEvery laps of patrol; they sit closer to the objectives than the home loop.
         public Transform[] peek;
         [Min(0)] public int peekEvery;
+        // Set only on guards[0] when the game runs with -hunter or -hunter-train; null keeps the FSM unchanged.
+        [HideInInspector] public HunterDecision hunter;
+        public bool CaughtPlayer { get; internal set; }
+        public Vector3 LastSeenVelocity { get; private set; }
         public bool Idling { get; private set; }
         // A resting guard sees a shorter, narrower cone and builds suspicion slowly.
         public float EffectiveVision => Idling ? visionDistance * .75f : visionDistance;
@@ -92,6 +96,7 @@ namespace SneakHouse
             if (CanSeePlayer)
             {
                 Remember(player.transform.position, now, "Vision");
+                LastSeenVelocity = player.Velocity;
                 lastVisible = now;
                 float flatDistance = Vector3.Distance(new Vector3(transform.position.x, 0, transform.position.z),
                     new Vector3(player.transform.position.x, 0, player.transform.position.z));
@@ -106,9 +111,13 @@ namespace SneakHouse
             else Suspicion = Mathf.Max(0, Suspicion - delta * suspicionDecay);
             if (!player.IsHidden && Vector3.Distance(transform.position, player.transform.position) < .72f &&
                 !Physics.Linecast(transform.position + Vector3.up, player.transform.position + Vector3.up, 1 << 8, QueryTriggerInteraction.Ignore))
-            { GameSession.Instance.End(false); return; }
+            { CaughtPlayer = true; GameSession.Instance.End(false); return; }
             switch (State)
             {
+                case Mode.Investigate when hunter != null:
+                case Mode.Search when hunter != null:
+                    HuntStep(delta, now);
+                    break;
                 case Mode.Patrol:
                     if (CanSeePlayer && Suspicion > .08f)
                     {
@@ -202,7 +211,7 @@ namespace SneakHouse
             if(spot.Occupant==null || Vector3.Distance(transform.position,spot.Approach)>1.15f)return false;
             if(checkingSpot!=spot){checkingSpot=spot;checkSince=Time.time;GameSession.Instance.Notify("Guard is checking the hiding spot.");}
             Agent.isStopped=true;acting?.Set("LookAround");Face(spot.anchor.position,Time.deltaTime);
-            if(Time.time-checkSince>=.8f)spot.Inspect(this);
+            if(Time.time-checkSince>=.8f && spot.Inspect(this))CaughtPlayer=true;
             return true;
         }
         private void ReceiveAlert(GuardBrain sender, Vector3 point, float timestamp)
@@ -232,6 +241,7 @@ namespace SneakHouse
             State = mode; stateSince = now; dwellUntil = 0; searchSince = -1; Agent.isStopped = false;
             Idling = false; peekIndex = -1;
             Agent.speed = mode == Mode.Chase ? chaseSpeed : mode == Mode.Patrol ? 1.15f : 1.65f;
+            if (mode == Mode.Chase) hunter?.OnChase(now);
             if (mode == Mode.Patrol || mode == Mode.Return)
             {
                 if (mode == Mode.Return)
@@ -247,15 +257,50 @@ namespace SneakHouse
             }
             else
             {
+                if (hunter != null) { NextHunt(now); return; }
                 searchPoint = 0;
                 Vector3 point = LastKnownPosition;
                 if (mode == Mode.Search && assistingSearch) point += SearchOffset(SearchSector());
                 if (!Go(point)) Go(LastKnownPosition);
-                // Crossing wings/floors can exceed a fixed timeout before the guard reaches evidence.
-                float distance = 0; Vector3[] corners = candidatePath.corners;
-                for (int i = 1; i < corners.Length; i++) distance += Vector3.Distance(corners[i-1],corners[i]);
-                travelBudget = Mathf.Clamp(distance/Mathf.Max(.1f,Agent.speed)+5,10,60);
+                UpdateTravelBudget();
             }
+        }
+        private void UpdateTravelBudget()
+        {
+            // Crossing wings/floors can exceed a fixed timeout before the guard reaches evidence.
+            float distance = 0; Vector3[] corners = candidatePath.corners;
+            for (int i = 1; i < corners.Length; i++) distance += Vector3.Distance(corners[i-1],corners[i]);
+            travelBudget = Mathf.Clamp(distance/Mathf.Max(.1f,Agent.speed)+5,10,60);
+        }
+        // Hunter: Investigate/Search destinations come from HunterDecision (plans/rl-enemy-design.md section 2).
+        private void HuntStep(float delta, float now)
+        {
+            if (now - LastEvidenceTime > HunterContract.MemoryHorizon) { SetMode(Mode.Return, now); return; }
+            if (!Reached())
+            {
+                if (now - stateSince > travelBudget) NextHunt(now);
+                return;
+            }
+            if (witnessedSpot != null)
+            {
+                if (TryInspect(witnessedSpot)) return;
+                if (witnessedSpot.Occupant == null) witnessedSpot = null;
+            }
+            Agent.isStopped = true;
+            HidingSpot spot = hunter.CheckingSpot;
+            if (spot != null) { acting?.Set("LookAround"); Face(spot.anchor != null ? spot.anchor.position : spot.transform.position, delta); }
+            else transform.Rotate(0, 50 * delta, 0);
+            if (dwellUntil == 0) dwellUntil = now + (spot != null ? .8f : .9f);
+            if (now < dwellUntil) return;
+            if (spot != null && hunter.ResolveCheck()) return;
+            NextHunt(now);
+        }
+        private void NextHunt(float now)
+        {
+            stateSince = now; dwellUntil = 0; Agent.isStopped = false;
+            if (!hunter.Decide(now, out Vector3 point)) { SetMode(Mode.Return, now); return; }
+            if (!Go(point)) Go(LastKnownPosition);
+            UpdateTravelBudget();
         }
         private void BeginDwell(float now)
         {

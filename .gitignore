@@ -54,3 +54,7 @@ sysinfo.txt
 /Assets/SneakHouse/Scripts/*DemoRecorder.cs.meta
 /Assets/SneakHouse/Scripts/*PreviewRecorder.cs
 /Assets/SneakHouse/Scripts/*PreviewRecorder.cs.meta
+
+# Trainer ML-Agents lokal
+/ml/.venv/
+/ml/results/

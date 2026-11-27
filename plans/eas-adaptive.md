@@ -139,8 +139,11 @@ Baris perilaku inilah yang menjawab poin "adaptasi tidak hanya mengubah angka st
 
 - Observation: ray sensor + posisi terakhir pemain. Action: arah gerak. Reward: menangkap pemain, dikurangi waktu.
 - Risikonya tinggi (instal package, training berjam-jam, perilaku sulit dikontrol). Jangan dijadikan andalan.
+- Desain lengkapnya, termasuk fallback Q-learning tanpa package, ada di [`rl-enemy-design.md`](rl-enemy-design.md).
 
 ## 8. Fase kerja (perkiraan total sekitar 10 hari kerja)
+
+Pemetaan fase ini ke materi Pertemuan 9–14 dan pembagian tugas 3 orang ada di [`progres-per-pertemuan.md`](progres-per-pertemuan.md).
 
 | Fase | Isi | Estimasi | Selesai kalau |
 |---|---|---|---|

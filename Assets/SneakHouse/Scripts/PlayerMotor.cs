@@ -20,6 +20,8 @@ namespace SneakHouse
         public PlayerStamina Stamina { get; private set; }
         public bool IsSprinting { get; private set; }
         public bool IsHidden => Hiding!=null && Hiding.IsHidden;
+        // Set by ThiefBot: keyboard input is ignored and the bot calls Move/TryInteract itself.
+        [HideInInspector] public bool externalControl;
         private CharacterController controller;
         private FootstepAudio footsteps;
         private float gravity, stepDistance;
@@ -39,6 +41,7 @@ namespace SneakHouse
             GameSession game = GameSession.Instance;
             if (game == null || game.Finished || game.Paused) { Velocity = Vector3.zero; IsSprinting = false; return; }
             if(IsHidden){Move(Vector3.zero,false,false,Time.deltaTime);return;}
+            if (externalControl) return;
             Vector3 input = new Vector3(
                 (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow) ? 1 : 0) - (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow) ? 1 : 0), 0,
                 (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow) ? 1 : 0) - (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow) ? 1 : 0));
@@ -64,7 +67,7 @@ namespace SneakHouse
             Velocity = (transform.position - before) / Mathf.Max(.0001f, delta); Velocity = new Vector3(Velocity.x, 0, Velocity.z);
             IsSprinting = running && Velocity.magnitude > .08f;
             Stamina?.Tick(delta, IsSprinting ? Velocity.magnitude / Mathf.Max(.01f, runSpeed) : 0);
-            if (View != null && View.FirstPersonControls)
+            if (View != null && View.FirstPersonControls && !externalControl)
                 transform.rotation = Quaternion.Euler(0, View.Yaw, 0);
             else if (input.sqrMagnitude > .01f)
             {

@@ -8,6 +8,7 @@ and results/timings.txt. Every claim in the generated text is computed from thos
 import argparse
 import csv
 import datetime
+import glob
 import json
 import math
 import os
@@ -189,6 +190,11 @@ def main():
             issues.append(f"Level {level}, {dict(METHODS)[key]}: {pct(t)} misi berakhir karena batas 180 dtk.")
         if len(eps) < 350:
             issues.append(f"Level {level}, {dict(METHODS)[key]}: hanya {len(eps)} misi (target 350).")
+    for watch in sorted(glob.glob(os.path.join(args.results, "*.watch.txt"))):
+        verdict = [line.strip() for line in open(watch) if line.startswith("verdict:")]
+        if verdict and "STOP" in verdict[-1]:
+            issues.append(f"PPO `{os.path.basename(watch)[:-10]}` dihentikan aturan 30k step: {verdict[-1][9:]}. "
+                          "Hasil PPO di atas memakai model terakhir yang tersimpan.")
     missing = [f"L{lv} {name}" for lv in args.levels for key, name in METHODS if (key, lv) not in data]
     if missing:
         issues.append("Belum ada log untuk: " + ", ".join(missing) + ".")

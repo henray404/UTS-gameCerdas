@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Hollow House RL lab runner (plans/rl-training-lab.md sections 6-9).
-# Usage: repo/ml/lab/hh.sh <setup|preflight|smoke|q|ppo|ppo-watch|eval|report|status>
+# Usage: repo/ml/lab/hh.sh <setup|preflight|smoke|q|ppo|ppo-watch|eval|report|status|auto>
 # Everything stays in $HH_ROOT (default ~/hollowhouse-rl). Long runs go to tmux sessions named hh-*.
 set -euo pipefail
 
@@ -226,6 +226,32 @@ job_eval() {
 }
 cmd_eval() { cmd_preflight; in_tmux hh-eval _eval; }
 
+# Waits for the build tarball, then runs the whole lab plan in order. Stops at the first failing step
+# (a failing smoke test means the build is broken: report it, do not patch C#).
+job_auto() {
+  local waited=0 limit=${HH_AUTO_WAIT_DAYS:-14}
+  until [ -x "$GAME" ] || [ -f "$TGZ" ]; do
+    [ $((waited % 3600)) -eq 0 ] && say "waiting for $TGZ (${waited}s)"
+    sleep 300; waited=$((waited + 300))
+    [ "$waited" -lt $((limit * 86400)) ] || die "no build after $limit days"
+  done
+  sleep 120   # let an scp in progress finish
+  if [ -f "$TGZ" ]; then local size=0; until [ "$size" = "$(stat -c %s "$TGZ")" ]; do size=$(stat -c %s "$TGZ"); sleep 30; done; fi
+  cmd_setup
+  cmd_smoke
+  job_q
+  if build_has "${REQUIRED_PPO[@]}" >/dev/null; then
+    local rc=0; job_ppo || rc=$?
+    [ "$rc" -eq 3 ] && say "PPO stopped by the 30k-step rule; evaluating Q-learning and the saved PPO model anyway"
+  else
+    say "build has no PPO flags: skipping PPO"
+  fi
+  job_eval
+  cmd_report
+  say "AUTO DONE: see ${HH_REPORT_DIR:-$REPO/ml/results}/summary.md"
+}
+cmd_auto() { in_tmux hh-auto _auto; }
+
 cmd_report() {
   "$VENV/bin/python" -I "$REPO/ml/make_summary.py" --logs "$LOGS" --results "$RES" --levels $LEVELS \
     --out "${HH_REPORT_DIR:-$REPO/ml/results}/summary.md" --csv-dir "${HH_REPORT_DIR:-$REPO/ml/results}"
@@ -241,9 +267,9 @@ cmd_status() {
 }
 
 case "${1:-}" in
-  setup|preflight|smoke|q|ppo|eval|report|status) "cmd_$1" ;;
+  setup|preflight|smoke|q|ppo|eval|report|status|auto) "cmd_$1" ;;
   ppo-watch) cmd_ppo_watch ;;
-  _q|_ppo|_eval) "job${1}" ;;
+  _q|_ppo|_eval|_auto) "job${1}" ;;
   _eval_one) eval_one "$2" "$3" ;;
   *) sed -n 2,4p "$0"; exit 2 ;;
 esac

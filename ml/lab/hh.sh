@@ -17,17 +17,23 @@ EPISODES_EVAL=${HH_EVAL_EPISODES:-350}
 LEVELS=${HH_LEVELS:-"1 3 6"}
 RUN_ID=${HH_RUN_ID:-hunter_ppo_v1}
 EXTRA_EVAL_ARGS=${HH_EVAL_ARGS:-}   # e.g. "-hunter-seed-offset 1000" once held-out seeds exist (see ml/rl-expansion.md)
+# Unity job workers busy-wait on spare cores: with 0 workers a mission runs at the same speed on ~0.9 instead of ~1.6 cores.
+GAME_ARGS=${HH_GAME_ARGS:--job-worker-count 0}
 mkdir -p "$LOGS" "$RES/q" "$RES/eval"
 
 say() { printf '[hh %(%H:%M:%S)T] %s\n' -1 "$*"; }
 die() { say "ERROR: $*"; exit 1; }
 stamp() { printf '%s %s %s\n' "$(date +%s)" "$1" "$2" >> "$RES/timings.txt"; }  # epoch event phase
 
-# Cores we may use: all cores minus current load minus 2 reserved for other users.
+# Cores we may use: idle cores right now (sampled from /proc/stat over 3 s) minus 2 kept free for other users.
 free_cores() {
-  local n load
-  n=$(nproc); load=$(awk '{print int($1+0.999)}' /proc/loadavg)
-  echo $(( n - load - 2 > 1 ? n - load - 2 : 1 ))
+  local a b
+  a=($(head -1 /proc/stat)); sleep 3; b=($(head -1 /proc/stat))
+  local idle=$(( (b[4] + b[5]) - (a[4] + a[5]) )) total=0 i
+  for i in 1 2 3 4 5 6 7 8; do total=$(( total + b[i] - a[i] )); done
+  local n; n=$(nproc)
+  local free=$(( n * idle / (total > 0 ? total : 1) - 2 ))
+  echo $(( free > 1 ? free : 1 ))
 }
 # Least busy GPU: mean utilisation (then memory) over 5 one-second samples, because shared GPUs spike.
 pick_gpu() {
@@ -80,7 +86,7 @@ cmd_preflight() {
 run_game() {  # log, episodes, max_seconds, args...
   local log=$1 n=$2 limit=$3; shift 3
   [ -f "$log" ] && mv "$log" "${log%.log}.$(date +%Y%m%d-%H%M%S).log"
-  timeout --kill-after=30 "$limit" "$GAME" -batchmode -nographics "$@" -hunter-episodes "$n" -logFile "$log" || true
+  timeout --kill-after=30 "$limit" "$GAME" -batchmode -nographics $GAME_ARGS "$@" -hunter-episodes "$n" -logFile "$log" || true
   local got=0
   if [[ " $* " == *" -hunter-train "* ]]; then
     got=$("$VENV/bin/python" -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["episodes"])' "$RES/q/hunter_qtable.json" 2>/dev/null || echo 0)
@@ -168,7 +174,7 @@ job_ppo() {
   CUDA_VISIBLE_DEVICES=$gpu "$VENV/bin/python" -I -c \
     'import os, signal, sys; signal.signal(signal.SIGINT, signal.SIG_DFL); os.execv(sys.argv[1], sys.argv[1:])' \
     "$VENV/bin/mlagents-learn" "$REPO/ml/hunter_ppo.yaml" --run-id "$RUN_ID" $resume \
-    --env "$GAME" --num-envs "$envs" --results-dir "$RES" --no-graphics --time-scale 4 --timeout-wait 600 --env-args -hunter-ppo-train &
+    --env "$GAME" --num-envs "$envs" --results-dir "$RES" --no-graphics --time-scale 4 --timeout-wait 600 --env-args $GAME_ARGS -hunter-ppo-train &
   local trainer=$!
   # Plan rule: if reward has not risen by 30k steps, stop (SIGINT makes mlagents save the model) and report.
   while kill -0 "$trainer" 2>/dev/null; do
@@ -216,7 +222,7 @@ PY
   (cd "$RES" && exec "$VENV/bin/python" -I -c \
     'import os, signal, sys; signal.signal(signal.SIGINT, signal.SIG_DFL); os.execv(sys.argv[1], sys.argv[1:])' \
     "$VENV/bin/mlagents-learn" "$RES/$run.yaml" --run-id "$run" --initialize-from "$RUN_ID" --inference --deterministic \
-    --env "$GAME" --num-envs "$envs" --results-dir "$RES" --no-graphics --time-scale 4 --timeout-wait 600 --env-args -hunter-ppo-train -hunter-level "$L" \
+    --env "$GAME" --num-envs "$envs" --results-dir "$RES" --no-graphics --time-scale 4 --timeout-wait 600 --env-args $GAME_ARGS -hunter-ppo-train -hunter-level "$L" \
     > "$LOGS/$run.trainer.log" 2>&1) &
   local trainer=$! got=0 start=$SECONDS
   while kill -0 "$trainer" 2>/dev/null && [ $((SECONDS - start)) -lt 43200 ]; do

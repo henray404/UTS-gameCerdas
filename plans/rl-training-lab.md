@@ -232,8 +232,10 @@ ATURAN
 ## 13. Status
 
 - [ ] Fase 0: prasyarat
-- [ ] Fase 1: kode + build
-- [ ] Fase 2: setup lab
+- [ ] Fase 1: kode + build. Dicek 27 Nov 2026 di `fp_eas` (`4d79b1c`): flag `-hunter-level`, `-hunter-table`, `-hunter-ppo-train`, `-hunter-ppo-eval`, dan `HunterAgent.cs` belum ada; `hollowhouse-rl-build.tgz` belum ada di lab
+- [ ] Fase 2: setup lab. Selesai sebagian (27 Nov 2026): repo di-clone, venv Python 3.10.12 + `mlagents` 1.1.0 + torch (CUDA) + TensorBoard terpasang, `mlagents-learn --help` jalan. Ekstrak build dan smoke test menunggu Fase 1
 - [ ] Fase 3: Q-learning multi-level
 - [ ] Fase 4: PPO
 - [ ] Fase 5: evaluasi + laporan
+
+Persiapan lab yang sudah siap pakai: `ml/lab/hh.sh`, `ml/hunter_ppo.yaml`, `ml/ppo_watch.py`, `ml/make_summary.py` (lihat `ml/README.md`). Perluasan setelah Fase 5: `ml/rl-expansion.md`.

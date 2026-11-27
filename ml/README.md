@@ -66,6 +66,18 @@ python3 ml/hunter_log_summary.py eval.log --against baseline.log
 
 Setiap misi menulis satu baris `HUNTER episode=... won=... hunterCaught=... actions=[...]`, dan tabel disimpan ke `persistentDataPath/hunter_qtable.json` setelah setiap misi, jadi training bisa dilanjutkan. Untuk dipakai di game, salin file itu ke `Assets/SneakHouse/Resources/Adaptive/hunter_qtable.json`.
 
+## Lab: satu pintu untuk Tugas 1–6
+
+`ml/lab/hh.sh` menjalankan seluruh pipeline lab (setup, smoke test, Q-learning, PPO, evaluasi, laporan) di tmux `hh-*`, dengan batas core dan pemilihan GPU paling kosong. Script ini sudah diuji end-to-end dengan build tiruan. File terkait:
+
+| File | Isi |
+|---|---|
+| `ml/lab/hh.sh` | Runner lab; `hh.sh` tanpa argumen menampilkan cara pakai |
+| `ml/hunter_ppo.yaml` | Config PPO (rencana lab bagian 8), sudah divalidasi dengan parser ML-Agents 1.1.0 |
+| `ml/ppo_watch.py` | Reward, panjang episode, lesson, distribusi aksi, verdict "reward naik di 30k step" |
+| `ml/make_summary.py` | Menulis `ml/results/summary.md` + CSV: catch rate, CI Wilson, p (dan Holm), distribusi aksi, state Q |
+| `ml/rl-expansion.md` | Rencana perluasan RL (Tahap C) dan gerbang robustness terhadap perubahan map |
+
 ## Tahap B: training PPO
 
 Rencana lengkap training di PC lab, termasuk prompt untuk agent di sana: [`../plans/rl-training-lab.md`](../plans/rl-training-lab.md).

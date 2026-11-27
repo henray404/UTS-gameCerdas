@@ -204,6 +204,7 @@ def main():
             else:
                 md.append(f"| {name} | {len(cur)}/48 | – |")
             prev = cur
+        md.append("")
     for spec in args.extra_table:
         label, path = spec.split("=", 1)
         if os.path.exists(path):

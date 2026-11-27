@@ -231,11 +231,11 @@ ATURAN
 
 ## 13. Status
 
-- [ ] Fase 0: prasyarat
-- [ ] Fase 1: kode + build. Dicek 27 Nov 2026 di `fp_eas` (`4d79b1c`): flag `-hunter-level`, `-hunter-table`, `-hunter-ppo-train`, `-hunter-ppo-eval`, dan `HunterAgent.cs` belum ada; `hollowhouse-rl-build.tgz` belum ada di lab
-- [ ] Fase 2: setup lab. Selesai sebagian (27 Nov 2026): repo di-clone, venv Python 3.10.12 + `mlagents` 1.1.0 + torch (CUDA) + TensorBoard terpasang, `mlagents-learn --help` jalan. Ekstrak build dan smoke test menunggu Fase 1
-- [ ] Fase 3: Q-learning multi-level
-- [ ] Fase 4: PPO
-- [ ] Fase 5: evaluasi + laporan
+- [x] Fase 0: prasyarat (laptop)
+- [x] Fase 1: kode + build (`85992cf`, build v1 sha256 `b6afbd3a…`)
+- [x] Fase 2: setup lab (27 Nov 2026). Smoke test 3 misi lolos di Manjaro; torch di-pin 2.5.1 supaya ekspor ONNX jalan
+- [x] Fase 3: Q-learning multi-level: 3000 episode (1500 + lanjutan karena state < 40/48), 34/48 state, 3,3 jam
+- [x] Fase 4: PPO: 100k step, 5 env, 1,3 jam; reward naik −0,12 → +1,0 (sebagian besar karena curriculum pindah ke L6)
+- [x] Fase 5: evaluasi + laporan (28 Nov 2026): `ml/results/summary.md`. Inti: di L1 Hunter > FSM (47,7% vs 36,0%, p = 0,002), tetapi sama persis dengan Hunter yang selalu GoLastKnown, jadi belum ada keunggulan dari aksi yang dipelajari; L3/L6 tidak membedakan metode
 
-Persiapan lab yang sudah siap pakai: `ml/lab/hh.sh`, `ml/hunter_ppo.yaml`, `ml/ppo_watch.py`, `ml/make_summary.py` (lihat `ml/README.md`). Perluasan setelah Fase 5: `ml/rl-expansion.md`.
+Lanjutan: build v2 (`42fbf5f`: `-hunter-solo`, `-thiefbot-skill`, seed layout, `-hunter-eps-decay`) sedang dikalibrasi dan dilatih di lab; rencana di `ml/rl-expansion.md`. Runner lab: `ml/lab/hh.sh` (lihat `ml/README.md`).

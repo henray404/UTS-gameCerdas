@@ -19,6 +19,11 @@ RUN_ID=${HH_RUN_ID:-hunter_ppo_v1}
 EXTRA_EVAL_ARGS=${HH_EVAL_ARGS:-}   # e.g. "-hunter-seed-offset 1000" once held-out seeds exist (see ml/rl-expansion.md)
 # Unity job workers busy-wait on spare cores: with 0 workers a mission runs at the same speed on ~0.9 instead of ~1.6 cores.
 GAME_ARGS=${HH_GAME_ARGS:--job-worker-count 0}
+# Build v2 options (ml/rl-expansion.md): extra flags per phase, PPO config, and held-out layout offsets for evaluation.
+Q_ARGS=${HH_Q_ARGS:-}                  # e.g. "-hunter-seed random -hunter-eps-decay 600"
+PPO_ARGS=${HH_PPO_ARGS:-}              # e.g. "-hunter-seed random"
+PPO_YAML=${HH_PPO_YAML:-$REPO/ml/hunter_ppo.yaml}
+EVAL_OFFSETS=${HH_EVAL_OFFSETS:-}      # e.g. "1000 1001 1002 1003 1004": evaluation missions split evenly over these layouts
 mkdir -p "$LOGS" "$RES/q" "$RES/eval"
 
 say() { printf '[hh %(%H:%M:%S)T] %s\n' -1 "$*"; }
@@ -134,11 +139,11 @@ job_q() {
   stamp start q
   q_snapshots & QSNAP_PID=$!
   trap 'kill "${QSNAP_PID:-}" 2>/dev/null || true' EXIT
-  run_game "$LOGS/q_train.log" "$EPISODES_Q" 36000 -hunter-train -hunter-level random -hunter-table "$RES/q/hunter_qtable.json"
+  run_game "$LOGS/q_train.log" "$EPISODES_Q" 36000 -hunter-train -hunter-level random -hunter-table "$RES/q/hunter_qtable.json" $Q_ARGS
   local visited; visited=$(q_summary)
   say "visited $visited/48 states after $EPISODES_Q episodes"
   if [ "$visited" -lt 40 ]; then  # plan section 7: continue to 3000 from the saved table
-    run_game "$LOGS/q_train_ext.log" 3000 36000 -hunter-train -hunter-level random -hunter-table "$RES/q/hunter_qtable.json"
+    run_game "$LOGS/q_train_ext.log" 3000 36000 -hunter-train -hunter-level random -hunter-table "$RES/q/hunter_qtable.json" $Q_ARGS
     visited=$(q_summary); say "visited $visited/48 states after 3000 episodes"
   fi
   kill "$QSNAP_PID" 2>/dev/null || true; trap - EXIT
@@ -173,8 +178,8 @@ job_ppo() {
   # Background jobs of a non-interactive shell ignore SIGINT; restore it so the stop below lets mlagents save the model.
   CUDA_VISIBLE_DEVICES=$gpu "$VENV/bin/python" -I -c \
     'import os, signal, sys; signal.signal(signal.SIGINT, signal.SIG_DFL); os.execv(sys.argv[1], sys.argv[1:])' \
-    "$VENV/bin/mlagents-learn" "$REPO/ml/hunter_ppo.yaml" --run-id "$RUN_ID" $resume \
-    --env "$GAME" --num-envs "$envs" --results-dir "$RES" --no-graphics --time-scale 4 --timeout-wait 600 --env-args $GAME_ARGS -hunter-ppo-train &
+    "$VENV/bin/mlagents-learn" "$PPO_YAML" --run-id "$RUN_ID" $resume \
+    --env "$GAME" --num-envs "$envs" --results-dir "$RES" --no-graphics --time-scale 4 --timeout-wait 600 --env-args $GAME_ARGS $PPO_ARGS -hunter-ppo-train &
   local trainer=$!
   # Plan rule: if reward has not risen by 30k steps, stop (SIGINT makes mlagents save the model) and report.
   while kill -0 "$trainer" 2>/dev/null; do
@@ -202,39 +207,65 @@ cmd_ppo_watch() { "$VENV/bin/python" -I "$REPO/ml/ppo_watch.py" "$RES/$RUN_ID"; 
 
 eval_one() {  # mode level
   local log=$LOGS/eval_$1_L$2.log
-  run_game "$log" "$EPISODES_EVAL" 43200 "-hunter-$1" -hunter-level "$2" -hunter-table "$RES/q/hunter_qtable.json" \
-    $EXTRA_EVAL_ARGS && touch "$log.done"
+  if [ -z "$EVAL_OFFSETS" ]; then
+    run_game "$log" "$EPISODES_EVAL" 43200 "-hunter-$1" -hunter-level "$2" -hunter-table "$RES/q/hunter_qtable.json" \
+      $EXTRA_EVAL_ARGS && touch "$log.done"
+    return
+  fi
+  # Held-out layouts: the same number of missions on each offset, concatenated into one log.
+  local offs=($EVAL_OFFSETS) o part; local n=$(( EPISODES_EVAL / ${#offs[@]} ))
+  for o in "${offs[@]}"; do
+    part=$LOGS/eval_$1_L$2.off$o.log
+    [ -f "$part.done" ] && continue
+    run_game "$part" "$n" 43200 "-hunter-$1" -hunter-level "$2" -hunter-table "$RES/q/hunter_qtable.json" \
+      -hunter-seed-offset "$o" $EXTRA_EVAL_ARGS && touch "$part.done" || return 1
+  done
+  for o in "${offs[@]}"; do grep '^HUNTER episode=' "$LOGS/eval_$1_L$2.off$o.log"; done > "$log"
+  touch "$log.done"
 }
 # PPO evaluation through the Python trainer in inference mode. The build's -hunter-ppo-eval only runs the ONNX
 # baked into Resources at build time, so a model trained here needs this path (or a rebuild on the laptop).
 eval_ppo_py() {  # level
-  local L=$1 run=${RUN_ID}_evalL$1 log=$LOGS/eval_ppo-eval_L$1.log
-  local envs=${HH_EVAL_PPO_ENVS:-4} cap; cap=$(free_cores); [ "$envs" -le "$cap" ] || envs=$cap
+  local L=$1 log=$LOGS/eval_ppo-eval_L$1.log o
   [ -d "$RES/$RUN_ID" ] || { say "FAIL no trained run $RES/$RUN_ID"; return 1; }
+  if [ -z "$EVAL_OFFSETS" ]; then
+    ppo_py_run "$L" "" "$EPISODES_EVAL" "$log" || return 1
+  else
+    local offs=($EVAL_OFFSETS); local n=$(( EPISODES_EVAL / ${#offs[@]} ))
+    for o in "${offs[@]}"; do
+      [ -f "$log.off$o.done" ] || { ppo_py_run "$L" "$o" "$n" "$log.off$o" && touch "$log.off$o.done"; } || return 1
+    done
+    for o in "${offs[@]}"; do cat "$log.off$o"; done > "$log"
+  fi
+  touch "$log.done"; say "OK $log: $(grep -c '^HUNTER episode=' "$log") episodes (python inference, deterministic)"
+}
+ppo_py_run() {  # level, seed offset or "", missions, output log
+  local L=$1 off=$2 n=$3 out=$4 run=${RUN_ID}_evalL$1${2:+_off$2}
+  local envs=${HH_EVAL_PPO_ENVS:-4} cap; cap=$(free_cores); [ "$envs" -le "$cap" ] || envs=$cap
   rm -rf "${RES:?}/$run"
-  "$VENV/bin/python" -I - "$REPO/ml/hunter_ppo.yaml" "$RES/$run.yaml" "$L" <<'PY'
+  "$VENV/bin/python" -I - "$PPO_YAML" "$RES/$run.yaml" "$L" <<'YAMLPY'
 import sys, yaml
 cfg = yaml.safe_load(open(sys.argv[1]))
 cfg["environment_parameters"] = {"level": int(sys.argv[3])}   # fixed level, no curriculum
 cfg["behaviors"]["HunterGuard"]["max_steps"] = 10_000_000       # stopped by episode count below
 yaml.safe_dump(cfg, open(sys.argv[2], "w"))
-PY
+YAMLPY
   (cd "$RES" && exec "$VENV/bin/python" -I -c \
     'import os, signal, sys; signal.signal(signal.SIGINT, signal.SIG_DFL); os.execv(sys.argv[1], sys.argv[1:])' \
     "$VENV/bin/mlagents-learn" "$RES/$run.yaml" --run-id "$run" --initialize-from "$RUN_ID" --inference --deterministic \
-    --env "$GAME" --num-envs "$envs" --results-dir "$RES" --no-graphics --time-scale 4 --timeout-wait 600 --env-args $GAME_ARGS -hunter-ppo-train -hunter-level "$L" \
+    --env "$GAME" --num-envs "$envs" --results-dir "$RES" --no-graphics --time-scale 4 --timeout-wait 600 \
+    --env-args $GAME_ARGS -hunter-ppo-train -hunter-level "$L" ${off:+-hunter-seed-offset $off} \
     > "$LOGS/$run.trainer.log" 2>&1) &
   local trainer=$! got=0 start=$SECONDS
   while kill -0 "$trainer" 2>/dev/null && [ $((SECONDS - start)) -lt 43200 ]; do
     sleep 20
     got=$(cat "$RES/$run"/run_logs/Player-*.log 2>/dev/null | grep -c '^HUNTER episode=' || true)
-    [ "$got" -ge "$EPISODES_EVAL" ] && break
+    [ "$got" -ge "$n" ] && break
   done
   kill -INT "$trainer" 2>/dev/null || true; wait "$trainer" || true
-  cat "$RES/$run"/run_logs/Player-*.log 2>/dev/null | grep '^HUNTER episode=' | head -n "$EPISODES_EVAL" > "$log" || true
-  got=$(grep -c '^HUNTER episode=' "$log" || true)
-  [ "$got" -ge "$EPISODES_EVAL" ] || { say "FAIL $log: $got/$EPISODES_EVAL (see $LOGS/$run.trainer.log)"; return 1; }
-  touch "$log.done"; say "OK $log: $got episodes (python inference, deterministic)"
+  cat "$RES/$run"/run_logs/Player-*.log 2>/dev/null | grep '^HUNTER episode=' | head -n "$n" > "$out" || true
+  got=$(grep -c '^HUNTER episode=' "$out" || true)
+  [ "$got" -ge "$n" ] || { say "FAIL $out: $got/$n (see $LOGS/$run.trainer.log)"; return 1; }
 }
 
 job_eval() {

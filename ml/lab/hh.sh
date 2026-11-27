@@ -113,8 +113,20 @@ q_summary() {  # all training logs (including rotated ones from restarts), oldes
     --csv "$RES/q/train.csv" --window 100 > "$RES/q/train_summary.txt"
   grep -oP '\(\K\d+(?=/48 visited)' "$RES/q/train_summary.txt"
 }
+# Copies the Q-table every 250 episodes (results/q/snapshots/ep<N>.json) so convergence (greedy policy stability)
+# can be checked and early tables can serve as weaker Hunters. Runs until the parent job ends.
+q_snapshots() {
+  local dir=$RES/q/snapshots next=250 ep; mkdir -p "$dir"
+  while sleep 30; do
+    ep=$("$VENV/bin/python" -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["episodes"])' "$RES/q/hunter_qtable.json" 2>/dev/null) || continue
+    # Named by the episode count actually in the table (the copy can lag the 250 mark by a mission or two).
+    if [ "$ep" -ge "$next" ]; then cp "$RES/q/hunter_qtable.json" "$dir/ep$(printf %04d "$ep").json"; next=$(( (ep / 250 + 1) * 250 )); fi
+  done
+}
 job_q() {
   stamp start q
+  q_snapshots & local snap=$!
+  trap 'kill $snap 2>/dev/null' EXIT
   run_game "$LOGS/q_train.log" "$EPISODES_Q" 36000 -hunter-train -hunter-level random -hunter-table "$RES/q/hunter_qtable.json"
   local visited; visited=$(q_summary)
   say "visited $visited/48 states after $EPISODES_Q episodes"

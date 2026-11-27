@@ -177,6 +177,22 @@ def main():
         md += ["", "<details><summary>Aksi greedy per state</summary>", "", "| State | Arti | Aksi | Q |", "|---|---|---|---:|"]
         md += [f"| s{s:02d} | `{label.strip()}` | {action} | {value:+.3f} |" for s, label, action, value in rows]
         md += ["", "</details>"]
+    snaps = sorted(glob.glob(os.path.join(args.results, "q", "snapshots", "ep*.json")))
+    if len(snaps) >= 2:
+        md += ["", "Konvergensi tabel Q (aksi greedy per state dibanding snapshot sebelumnya; hanya state yang terkunjungi di keduanya):", "",
+               "| Snapshot | State terkunjungi | Aksi greedy berubah |", "|---|---:|---:|"]
+        prev = None
+        for snap in snaps + ([table] if os.path.exists(table) else []):
+            _, rows = greedy_policy(snap)
+            cur = {r[0]: r[2] for r in rows}
+            name = os.path.basename(snap) if snap != table else "akhir"
+            if prev is not None:
+                common = set(prev) & set(cur)
+                changed = sum(prev[s_] != cur[s_] for s_ in common)
+                md.append(f"| {name} | {len(cur)}/48 | {changed}/{len(common)} ({pct(changed / len(common)) if common else '–'}) |")
+            else:
+                md.append(f"| {name} | {len(cur)}/48 | – |")
+            prev = cur
     if "ppo" in spans:
         md.append(f"- PPO: waktu {spans['ppo'] / 3600:.1f} jam (lihat kurva di TensorBoard, `results/<run-id>`).")
     md.append("")

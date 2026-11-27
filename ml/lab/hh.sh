@@ -59,7 +59,9 @@ cmd_setup() {
   "$VENV/bin/mlagents-learn" --help >/dev/null && say "trainer OK"
   if [ ! -x "$GAME" ]; then
     [ -f "$TGZ" ] || die "build missing: copy hollowhouse-rl-build.tgz to $ROOT (plans/rl-training-lab.md 1c)"
-    tar xzf "$TGZ" -C "$ROOT" && chmod +x "$GAME"
+    tar xzf "$TGZ" -C "$ROOT" 2>&1 | grep -v 'unknown extended header' || true
+    chmod +x "$GAME"
+    find "$BUILD_DIR" -name '._*' -size -4k -delete   # AppleDouble metadata from a tarball made on macOS
   fi
   say "build at $GAME"
 }
@@ -135,7 +137,7 @@ job_ppo() {
   CUDA_VISIBLE_DEVICES=$gpu "$VENV/bin/python" -I -c \
     'import os, signal, sys; signal.signal(signal.SIGINT, signal.SIG_DFL); os.execv(sys.argv[1], sys.argv[1:])' \
     "$VENV/bin/mlagents-learn" "$REPO/ml/hunter_ppo.yaml" --run-id "$RUN_ID" $resume \
-    --env "$GAME" --num-envs "$envs" --no-graphics --env-args -hunter-ppo-train &
+    --env "$GAME" --num-envs "$envs" --no-graphics --time-scale 4 --timeout-wait 600 --env-args -hunter-ppo-train &
   local trainer=$!
   # Plan rule: if reward has not risen by 30k steps, stop (SIGINT makes mlagents save the model) and report.
   while kill -0 "$trainer" 2>/dev/null; do
@@ -183,7 +185,7 @@ PY
   (cd "$RES" && exec "$VENV/bin/python" -I -c \
     'import os, signal, sys; signal.signal(signal.SIGINT, signal.SIG_DFL); os.execv(sys.argv[1], sys.argv[1:])' \
     "$VENV/bin/mlagents-learn" "$RES/$run.yaml" --run-id "$run" --initialize-from "$RUN_ID" --inference --deterministic \
-    --env "$GAME" --num-envs "$envs" --no-graphics --env-args -hunter-ppo-train -hunter-level "$L" \
+    --env "$GAME" --num-envs "$envs" --no-graphics --time-scale 4 --timeout-wait 600 --env-args -hunter-ppo-train -hunter-level "$L" \
     > "$LOGS/$run.trainer.log" 2>&1) &
   local trainer=$! got=0 start=$SECONDS
   while kill -0 "$trainer" 2>/dev/null && [ $((SECONDS - start)) -lt 43200 ]; do
@@ -239,13 +241,17 @@ job_auto() {
   if [ -f "$TGZ" ]; then local size=0; until [ "$size" = "$(stat -c %s "$TGZ")" ]; do size=$(stat -c %s "$TGZ"); sleep 30; done; fi
   cmd_setup
   cmd_smoke
-  job_q
+  # Q-learning is a single process, so it runs next to PPO (which takes the remaining cores).
+  ( job_q ) & local qpid=$!
+  sleep 60
   if build_has "${REQUIRED_PPO[@]}" >/dev/null; then
-    local rc=0; job_ppo || rc=$?
+    local rc=0; ( job_ppo ) || rc=$?
     [ "$rc" -eq 3 ] && say "PPO stopped by the 30k-step rule; evaluating Q-learning and the saved PPO model anyway"
+    [ "$rc" -ne 0 ] && [ "$rc" -ne 3 ] && say "PPO failed (exit $rc); continuing with Q-learning only"
   else
     say "build has no PPO flags: skipping PPO"
   fi
+  wait "$qpid" || die "Q-learning failed, see $LOGS/q_train.log"
   job_eval
   cmd_report
   say "AUTO DONE: see ${HH_REPORT_DIR:-$REPO/ml/results}/summary.md"

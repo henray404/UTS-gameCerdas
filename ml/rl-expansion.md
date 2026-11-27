@@ -193,6 +193,7 @@ repo/ml/lab/hh.sh ppo-watch   # reward, panjang episode, lesson, distribusi aksi
 repo/ml/lab/hh.sh eval        # tmux hh-eval: level × {baseline, eval, ppo-eval} × 350, lanjut dari yang belum selesai
 repo/ml/lab/hh.sh report      # tulis ml/results/summary.md + CSV
 repo/ml/lab/hh.sh status
+repo/ml/lab/hh.sh auto        # tmux hh-auto: tunggu build tgz, lalu setup, smoke, q, ppo, eval, report
 ```
 
 Pengaturan lewat env: `HH_NUM_ENVS` (default 10, dibatasi core bebas − 2), `HH_EVAL_PAR` (default 6), `HH_LEVELS`, `HH_EVAL_EPISODES`, `HH_RUN_ID`, `HH_EVAL_ARGS` (contoh nanti: `-hunter-seed-offset 1000` untuk held-out), `HH_PPO_EVAL` (`auto` | `python` | `build` | `none`).

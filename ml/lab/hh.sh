@@ -100,7 +100,7 @@ SELF=$(readlink -f "$0")
 in_tmux() {  # session, job
   need_session_free "$1"
   # tmux runs jobs in its server's environment, so pass every HH_* setting explicitly.
-  local envs; envs=$(env | grep '^HH_' | sed "s/'/'\\\\''/g; s/=\(.*\)/='\1'/" | tr '\n' ' ')
+  local envs; envs=$( (env | grep '^HH_' || true) | sed "s/'/'\\\\''/g; s/=\(.*\)/='\1'/" | tr '\n' ' ')
   tmux new-session -d -s "$1" "env HH_ROOT='$ROOT' $envs bash -c '\"$SELF\" $2 2>&1 | tee -a \"$LOGS/$1.out\"'"
   say "started tmux $1 (attach: tmux attach -t $1, log: $LOGS/$1.out)"
 }

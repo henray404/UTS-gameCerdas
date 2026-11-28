@@ -19,7 +19,9 @@ Kurva training PPO (`results/hunter_ppo_v1`, 5 env, 1,3 jam): reward rata-rata p
 | Reward | −0,12 | +0,10 | +0,84 | +0,89 | +0,94 | +0,98 | +1,01 | +1,00 |
 | Lesson | L1 | L6 | L6 | L6 | L6 | L6 | L6 | L6 |
 
-### Yang dikirim ke game
+### Yang dikirim ke game (v1, sudah diganti model v2; lihat `v2/analysis_v2.md`)
+
+Di layout yang tidak pernah dilihat, tabel Q v1 turun ke 33,4% di L1, di bawah FSM, sehingga `Resources/Adaptive/` sekarang memuat model v2.
 
 - `Resources/Adaptive/hunter_qtable.json`: tabel Q-learning biasa (3000 episode, 34/48 state, hampir konvergen). Tabel optimis tidak dipilih karena selisihnya belum signifikan dan masih menyimpan nilai awal +0,5 di aksi yang belum dicoba.
 - `Resources/Adaptive/HunterGuard.onnx`: PPO 100k step (opset 9, obs 28 + 18 ray, mask 6). Dalam inference deterministik perilakunya setara GoLastKnown.

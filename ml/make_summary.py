@@ -17,11 +17,13 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from hunter_log_summary import ACTIONS, greedy_policy, parse, wilson  # noqa: E402
 
-METHODS = [("baseline", "FSM (baseline)"), ("eval", "Q-learning"), ("eval-qopt", "Q-learning (tabel awal optimis)"),
+METHODS = [("baseline", "FSM (baseline)"), ("eval", "Q-learning"), ("eval-qv1", "Q-learning v1 (dilatih di layout tetap)"),
+           ("eval-qopt", "Q-learning (tabel awal optimis)"),
            ("golastknown", "Hunter selalu GoLastKnown (heuristik)"),
+           ("golastknown-ml", "Hunter selalu GoLastKnown (mode ML-Agents)"),
            ("ppo-eval", "PPO deterministik (mode ML-Agents)"), ("ppo-stoch", "PPO stokastik (mode ML-Agents)")]
 # Comparison runs: left out of the table entirely when they were not evaluated.
-OPTIONAL = {"eval-qopt", "golastknown", "ppo-stoch"}
+OPTIONAL = {"eval-qv1", "eval-qopt", "golastknown", "golastknown-ml", "ppo-stoch"}
 ALPHA = 0.05
 
 
@@ -78,6 +80,8 @@ def main():
     ap.add_argument("--levels", nargs="+", type=int, default=[1, 3, 6])
     ap.add_argument("--out", required=True)
     ap.add_argument("--csv-dir", required=True)
+    ap.add_argument("--build-v2", action="store_true",
+                    help="logs come from build v2 (exitTime logged, held-out seeds): drop the two v1-only caveats")
     ap.add_argument("--notes", help="hand-written analysis (markdown) inserted after the introduction")
     ap.add_argument("--extra-table", action="append", default=[],
                     help="label=path of another Q-table to report visited states for (e.g. the optimistic run)")
@@ -231,9 +235,11 @@ def main():
     missing = [f"L{lv} {name}" for lv in args.levels for key, name in METHODS if (key, lv) not in data and key not in OPTIONAL]
     if missing:
         issues.append("Belum ada log untuk: " + ", ".join(missing) + ".")
-    issues.append("Waktu Hunter < 4 m dari pintu keluar belum tercatat di log `HUNTER`, jadi batas camping 25% belum bisa diuji "
-                  "(usulan kode di `ml/rl-expansion.md`).")
-    issues.append("Layout per level memakai seed tetap (`CampaignLevels.cs`: `LayoutSeed => 2401 + Number * 137`), jadi evaluasi memakai layout yang sama "
+    if not args.build_v2:
+        issues.append("Waktu Hunter < 4 m dari pintu keluar belum tercatat di log `HUNTER`, jadi batas camping 25% belum bisa diuji "
+                      "(usulan kode di `ml/rl-expansion.md`).")
+    if not args.build_v2:
+        issues.append("Layout per level memakai seed tetap (`CampaignLevels.cs`: `LayoutSeed => 2401 + Number * 137`), jadi evaluasi memakai layout yang sama "
                   "dengan training. Uji layout baru butuh flag seed (usulan di `ml/rl-expansion.md`).")
     md += [f"- {i}" for i in issues] + [""]
 

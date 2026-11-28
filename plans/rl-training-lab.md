@@ -238,4 +238,6 @@ ATURAN
 - [x] Fase 4: PPO: 100k step, 5 env, 1,3 jam; reward naik −0,12 → +1,0 (sebagian besar karena curriculum pindah ke L6)
 - [x] Fase 5: evaluasi + laporan (28 Nov 2026): `ml/results/summary.md`. Inti: di L1 Hunter > FSM (47,7% vs 36,0%, p = 0,002), tetapi sama persis dengan Hunter yang selalu GoLastKnown, jadi belum ada keunggulan dari aksi yang dipelajari; L3/L6 tidak membedakan metode
 
-Lanjutan: build v2 (`42fbf5f`: `-hunter-solo`, `-thiefbot-skill`, seed layout, `-hunter-eps-decay`) sedang dikalibrasi dan dilatih di lab; rencana di `ml/rl-expansion.md`. Runner lab: `ml/lab/hh.sh` (lihat `ml/README.md`).
+- [x] Build v2 (`42fbf5f`, 28 Nov 2026): kalibrasi bot (`ml/results/calibration_v2.md`), Q-learning 3000 episode + PPO 200k step di layout acak, evaluasi di layout held-out (`ml/results/v2/summary.md`). Inti: tabel Q v1 jatuh ke 33,4% di L1 pada layout baru (di bawah FSM 50,9%), tabel Q v2 53,7% (+20 poin, p < 0,001), sehingga model v2 yang dikirim ke `Resources/Adaptive/`. Kebijakan yang dipelajari tetap setara Hunter selalu GoLastKnown (belum signifikan berbeda)
+
+Runner lab: `ml/lab/hh.sh` (lihat `ml/README.md`). Rencana lanjutan: `ml/rl-expansion.md`.

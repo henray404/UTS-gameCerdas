@@ -84,6 +84,9 @@ Setiap misi menulis satu baris `HUNTER episode=... won=... hunterCaught=... acti
 | `ml/ppo_watch.py` | Reward, panjang episode, lesson, distribusi aksi, verdict "reward naik di 30k step" |
 | `ml/make_summary.py` | Menulis `ml/results/summary.md` + CSV: catch rate, CI Wilson, p (dan Holm), distribusi aksi, state Q |
 | `ml/rl-expansion.md` | Rencana perluasan RL (Tahap C) dan gerbang robustness terhadap perubahan map |
+| `ml/hunter_ppo_solo.yaml` | Config PPO build v2 (curriculum L1→L3→L5→L6, threshold 0,3 / 500 episode, 200k step) |
+
+Pengaturan runner lewat env (semua opsional): `HH_GAME_ARGS` (default `-job-worker-count 0`), `HH_Q_ARGS`, `HH_PPO_ARGS`, `HH_PPO_YAML`, `HH_RUN_ID`, `HH_EVAL_OFFSETS` (layout held-out, misi dibagi rata), `HH_PPO_EVAL` (`auto`/`python`/`build`/`none`), `HH_REPORT_DIR`. Setelan eksperimen v2 lengkap ada di `ml/results/v2/analysis_v2.md`.
 
 ## Tahap B: training PPO
 
